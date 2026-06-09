@@ -31,6 +31,13 @@ const ICONS = {
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const formatearPeriodo = (p) => { if (!p) return ''; const [a, m] = p.split('-'); return `${MESES[parseInt(m)-1]} ${a}`; };
 
+const saludo = () => {
+  const h = new Date().getHours();
+  if (h >= 6  && h < 12) return 'Buenos días';
+  if (h >= 12 && h < 20) return 'Buenas tardes';
+  return 'Buenas noches';
+};
+
 const Skeleton = ({ className = '' }) => (
   <div className={`bg-slate-700/40 rounded animate-pulse ${className}`} />
 );
@@ -207,7 +214,9 @@ export default function DashboardPage() {
       <header className="sticky top-0 z-10 border-b border-white/[0.06] bg-[hsl(222,47%,7%)]/80
                          backdrop-blur-sm px-6 py-4 flex items-center justify-between">
         <div>
-          <h1 className="text-white text-lg font-semibold leading-none">Dashboard</h1>
+          <h1 className="text-white text-lg font-semibold leading-none">
+            {saludo()}, {usuario?.nombre?.split(' ')[0] ?? 'bienvenido'}
+          </h1>
           <p className="text-slate-500 text-xs mt-1">
             {esAdmin
               ? periodoActivo ? `Período activo: ${periodoActivo.periodo}` : 'Sin período activo'

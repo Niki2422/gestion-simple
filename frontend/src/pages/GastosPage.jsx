@@ -2,13 +2,13 @@
 // GastosPage.jsx
 // Ubicación: src/pages/GastosPage.jsx
 // ============================================================
- 
+
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout';
 import api from '../lib/api';
- 
+
 const Icon = ({ path, size = 18, className = '' }) => (
   <svg width={size} height={size} className={className} fill="none"
     stroke="currentColor" viewBox="0 0 24 24" style={{ minWidth: size, minHeight: size }}>
@@ -23,17 +23,17 @@ const ICONS = {
   atras:   'M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18',
   gasto:   'M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z',
 };
- 
+
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const formatearPeriodo = (p) => { if (!p) return ''; const [a, m] = p.split('-'); return `${MESES[parseInt(m)-1]} ${a}`; };
- 
+
 const Badge = ({ children, variant = 'default' }) => {
   const v = { default: 'bg-slate-700/50 text-slate-300', success: 'bg-emerald-400/15 text-emerald-400', warning: 'bg-amber-400/15 text-amber-400' };
   return <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${v[variant]}`}>{children}</span>;
 };
 const Spinner = () => <div className="w-5 h-5 rounded-full border-2 border-emerald-400 border-t-transparent animate-spin" />;
- 
-const Modal = ({ titulo, children, onCerrar }) => (
+
+const Modal = ({ titulo, children }) => (
   <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
     style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
     <div className="bg-[hsl(222,47%,10%)] border border-white/[0.08] rounded-2xl p-6 w-full max-w-sm space-y-4">
@@ -42,55 +42,51 @@ const Modal = ({ titulo, children, onCerrar }) => (
     </div>
   </div>
 );
- 
+
 export default function GastosPage() {
   const { usuario } = useAuth();
   const navigate    = useNavigate();
   const [params]    = useSearchParams();
   const esAdmin     = usuario?.rol === 'administrador';
- 
+
   const [periodos,      setPeriodos]      = useState([]);
   const [periodoSel,    setPeriodoSel]    = useState(params.get('periodoId') || '');
   const [gastos,        setGastos]        = useState([]);
+  const [filtro,        setFiltro]        = useState('todos'); // todos | ordinario | extraordinario
   const [cargando,      setCargando]      = useState(false);
   const [toast,         setToast]         = useState('');
   const [error,         setError]         = useState('');
- 
-  // Formulario
+
   const [mostrarForm,   setMostrarForm]   = useState(false);
   const [form,          setForm]          = useState({ descripcion: '', monto: '', tipo: 'ordinario' });
   const [creando,       setCreando]       = useState(false);
   const [errorForm,     setErrorForm]     = useState('');
- 
-  // Confirm eliminar
+
   const [gastoAEliminar, setGastoAEliminar] = useState(null);
   const [eliminando,     setEliminando]     = useState(false);
- 
+
   const mostrarToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3500); };
- 
-  // Cargar períodos al montar
+
   useEffect(() => {
     api.get('/periodos').then(r => {
       const data = r.data.datos ?? r.data;
       setPeriodos(data);
       if (!periodoSel && data.length > 0) {
-        const abierto = data.find(p => p.estado === 'abierto');
+        const abierto = data.find(p => p.cerrado === false);
         setPeriodoSel(abierto?.id ?? data[0].id);
       }
     });
   }, []);
- 
-  // Cargar gastos cuando cambia el período
+
   useEffect(() => {
     if (!periodoSel) return;
-    setCargando(true);
-    setError('');
+    setCargando(true); setError('');
     api.get(`/gastos?periodoId=${periodoSel}`)
       .then(r => setGastos(r.data.datos ?? r.data))
       .catch(() => setError('No se pudieron cargar los gastos'))
       .finally(() => setCargando(false));
   }, [periodoSel]);
- 
+
   const handleCrear = async () => {
     if (!form.descripcion || !form.monto) { setErrorForm('Completá todos los campos'); return; }
     setCreando(true); setErrorForm('');
@@ -105,7 +101,7 @@ export default function GastosPage() {
       setErrorForm(e.response?.data?.mensaje || 'Error al crear el gasto');
     } finally { setCreando(false); }
   };
- 
+
   const handleEliminar = async () => {
     if (!gastoAEliminar) return;
     setEliminando(true);
@@ -119,16 +115,24 @@ export default function GastosPage() {
       setGastoAEliminar(null);
     } finally { setEliminando(false); }
   };
- 
-  const totalGastos = gastos.reduce((s, g) => s + Number(g.monto || 0), 0);
+
+  // Gastos filtrados por tipo
+  const gastosFiltrados = filtro === 'todos'
+    ? gastos
+    : gastos.filter(g => g.tipo === filtro);
+
+  const totalFiltrados = gastosFiltrados.reduce((s, g) => s + Number(g.monto || 0), 0);
+  const totalOrdinario      = gastos.filter(g => g.tipo === 'ordinario').reduce((s, g) => s + Number(g.monto || 0), 0);
+  const totalExtraordinario = gastos.filter(g => g.tipo === 'extraordinario').reduce((s, g) => s + Number(g.monto || 0), 0);
+  const totalGastos         = gastos.reduce((s, g) => s + Number(g.monto || 0), 0);
+
   const periodoActual  = periodos.find(p => p.id === periodoSel);
   const periodoAbierto = periodoActual?.cerrado === false;
- 
+
   return (
     <Layout>
-      {/* Header */}
       <header className="sticky top-0 z-10 border-b border-white/[0.06] bg-[hsl(222,47%,7%)]/80
-                         backdrop-blur-sm px-6 py-4 flex items-center justify-between">
+                         backdrop-blur-sm px-6 py-4 flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate('/dashboard')} className="text-slate-500 hover:text-white transition-colors">
             <Icon path={ICONS.atras} size={18} />
@@ -140,9 +144,9 @@ export default function GastosPage() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap justify-end">
           {/* Selector período */}
-          <select value={periodoSel} onChange={e => setPeriodoSel(e.target.value)}
+          <select value={periodoSel} onChange={e => { setPeriodoSel(e.target.value); setFiltro('todos'); }}
             className="bg-white/[0.04] border border-white/[0.08] text-white text-sm rounded-lg
                        px-3 py-2 focus:outline-none focus:border-emerald-400/50 [color-scheme:dark]">
             {periodos.map(p => (
@@ -151,6 +155,20 @@ export default function GastosPage() {
               </option>
             ))}
           </select>
+
+          {/* Filtro por tipo */}
+          {gastos.length > 0 && (
+            <div className="flex bg-slate-900/60 border border-white/[0.06] rounded-lg p-0.5">
+              {['todos', 'ordinario', 'extraordinario'].map(f => (
+                <button key={f} onClick={() => setFiltro(f)}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-150
+                    ${filtro === f ? 'bg-emerald-400/10 text-emerald-400' : 'text-slate-500 hover:text-slate-300'}`}>
+                  {f === 'todos' ? 'Todos' : f === 'ordinario' ? 'Ordinarios' : 'Extraordinarios'}
+                </button>
+              ))}
+            </div>
+          )}
+
           {esAdmin && periodoAbierto && (
             <button onClick={() => setMostrarForm(true)}
               className="flex items-center gap-2 bg-emerald-400 hover:bg-emerald-300
@@ -161,7 +179,7 @@ export default function GastosPage() {
           )}
         </div>
       </header>
- 
+
       <div className="p-6 space-y-4">
         {error && (
           <div className="flex items-center gap-3 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
@@ -169,40 +187,54 @@ export default function GastosPage() {
             <p className="text-red-400 text-sm">{error}</p>
           </div>
         )}
- 
-        {/* Resumen */}
+
+        {/* Resumen — las 3 cards son clickeables para filtrar */}
         {!cargando && gastos.length > 0 && (
           <div className="grid grid-cols-3 gap-4">
-            <div className="bg-slate-900/60 border border-white/[0.06] rounded-xl p-4">
+            <button onClick={() => setFiltro('todos')}
+              className={`bg-slate-900/60 border rounded-xl p-4 text-left transition-all
+                ${filtro === 'todos' ? 'border-emerald-400/30' : 'border-white/[0.06] hover:border-white/[0.12]'}`}>
               <p className="text-slate-500 text-xs uppercase tracking-wider mb-1">Total gastos</p>
               <p className="text-white text-xl font-semibold">${totalGastos.toLocaleString('es-AR')}</p>
-            </div>
-            <div className="bg-slate-900/60 border border-white/[0.06] rounded-xl p-4">
+              <p className="text-slate-600 text-xs mt-1">{gastos.length} gasto{gastos.length !== 1 ? 's' : ''}</p>
+            </button>
+            <button onClick={() => setFiltro('ordinario')}
+              className={`bg-slate-900/60 border rounded-xl p-4 text-left transition-all
+                ${filtro === 'ordinario' ? 'border-emerald-400/30' : 'border-white/[0.06] hover:border-white/[0.12]'}`}>
               <p className="text-slate-500 text-xs uppercase tracking-wider mb-1">Ordinarios</p>
-              <p className="text-white text-xl font-semibold">
-                ${gastos.filter(g=>g.tipo==='ordinario').reduce((s,g)=>s+Number(g.monto||0),0).toLocaleString('es-AR')}
-              </p>
-            </div>
-            <div className="bg-slate-900/60 border border-white/[0.06] rounded-xl p-4">
+              <p className="text-white text-xl font-semibold">${totalOrdinario.toLocaleString('es-AR')}</p>
+              <p className="text-slate-600 text-xs mt-1">{gastos.filter(g => g.tipo === 'ordinario').length} gasto{gastos.filter(g => g.tipo === 'ordinario').length !== 1 ? 's' : ''}</p>
+            </button>
+            <button onClick={() => setFiltro('extraordinario')}
+              className={`bg-slate-900/60 border rounded-xl p-4 text-left transition-all
+                ${filtro === 'extraordinario' ? 'border-amber-400/30' : 'border-white/[0.06] hover:border-white/[0.12]'}`}>
               <p className="text-slate-500 text-xs uppercase tracking-wider mb-1">Extraordinarios</p>
-              <p className="text-white text-xl font-semibold">
-                ${gastos.filter(g=>g.tipo==='extraordinario').reduce((s,g)=>s+Number(g.monto||0),0).toLocaleString('es-AR')}
-              </p>
-            </div>
+              <p className="text-white text-xl font-semibold">${totalExtraordinario.toLocaleString('es-AR')}</p>
+              <p className="text-slate-600 text-xs mt-1">{gastos.filter(g => g.tipo === 'extraordinario').length} gasto{gastos.filter(g => g.tipo === 'extraordinario').length !== 1 ? 's' : ''}</p>
+            </button>
           </div>
         )}
- 
+
         {/* Tabla */}
         <div className="bg-slate-900/60 border border-white/[0.06] rounded-xl overflow-hidden">
           {cargando ? (
             <div className="flex items-center justify-center py-20"><Spinner /></div>
-          ) : gastos.length === 0 ? (
+          ) : gastosFiltrados.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 gap-3">
               <Icon path={ICONS.gasto} size={32} className="text-slate-600" />
-              <p className="text-slate-400 text-sm">Sin gastos en este período</p>
-              {esAdmin && periodoAbierto && (
+              <p className="text-slate-400 text-sm">
+                {gastos.length === 0
+                  ? 'Sin gastos en este período'
+                  : `Sin gastos ${filtro === 'ordinario' ? 'ordinarios' : 'extraordinarios'}`}
+              </p>
+              {gastos.length === 0 && esAdmin && periodoAbierto && (
                 <button onClick={() => setMostrarForm(true)} className="text-emerald-400 text-sm hover:underline">
                   Cargar el primer gasto →
+                </button>
+              )}
+              {gastos.length > 0 && (
+                <button onClick={() => setFiltro('todos')} className="text-emerald-400 text-sm hover:underline">
+                  Ver todos los gastos →
                 </button>
               )}
             </div>
@@ -218,7 +250,7 @@ export default function GastosPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/[0.04]">
-                {gastos.map(g => (
+                {gastosFiltrados.map(g => (
                   <tr key={g.id} className="group hover:bg-white/[0.02] transition-colors">
                     <td className="px-5 py-3.5 text-slate-300">{g.descripcion}</td>
                     <td className="px-5 py-3.5">
@@ -245,9 +277,11 @@ export default function GastosPage() {
               </tbody>
               <tfoot className="border-t border-white/[0.06]">
                 <tr>
-                  <td colSpan={3} className="px-5 py-3 text-slate-500 text-xs">Total</td>
+                  <td colSpan={3} className="px-5 py-3 text-slate-500 text-xs">
+                    {filtro === 'todos' ? 'Total' : `Total ${filtro === 'ordinario' ? 'ordinarios' : 'extraordinarios'}`}
+                  </td>
                   <td className="px-5 py-3 text-right text-emerald-400 font-semibold">
-                    ${totalGastos.toLocaleString('es-AR')}
+                    ${totalFiltrados.toLocaleString('es-AR')}
                   </td>
                   {esAdmin && periodoAbierto && <td />}
                 </tr>
@@ -256,10 +290,10 @@ export default function GastosPage() {
           )}
         </div>
       </div>
- 
+
       {/* Modal nuevo gasto */}
       {mostrarForm && (
-        <Modal titulo="Nuevo gasto" onCerrar={() => setMostrarForm(false)}>
+        <Modal titulo="Nuevo gasto">
           <div className="space-y-3">
             <div className="space-y-1.5">
               <label className="text-slate-400 text-xs uppercase tracking-wider">Descripción</label>
@@ -308,7 +342,7 @@ export default function GastosPage() {
           </div>
         </Modal>
       )}
- 
+
       {/* Modal confirmar eliminar */}
       {gastoAEliminar && (
         <Modal titulo="Eliminar gasto">
@@ -332,8 +366,7 @@ export default function GastosPage() {
           </div>
         </Modal>
       )}
- 
-      {/* Toast */}
+
       {toast && (
         <div className="fixed bottom-6 right-6 z-50 bg-slate-800 border border-white/[0.08]
                         rounded-xl px-4 py-3 flex items-center gap-3 shadow-xl animate-fade-up">
@@ -344,4 +377,3 @@ export default function GastosPage() {
     </Layout>
   );
 }
- 
