@@ -56,6 +56,7 @@ app.use('/api/unidades', require('./src/routes/unidades.rutas'));
 app.use('/api/gastos',   require('./src/routes/gastos.rutas'));    
 app.use('/api/periodos', require('./src/routes/periodos.rutas'));  
 app.use('/api/expensas', require('./src/routes/expensas.rutas')); 
+app.use('/api/presupuestos', require('./src/routes/presupuesto.rutas'));
 
 // ── Ruta no encontrada ─────────────────────────────────────
 app.use((req, res) => {

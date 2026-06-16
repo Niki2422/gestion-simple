@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout';
+import EmptyState from '../components/EmptyState';
 import api from '../lib/api';
 
 const Icon = ({ path, size = 18, className = '' }) => (
@@ -220,24 +221,23 @@ export default function GastosPage() {
           {cargando ? (
             <div className="flex items-center justify-center py-20"><Spinner /></div>
           ) : gastosFiltrados.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 gap-3">
-              <Icon path={ICONS.gasto} size={32} className="text-slate-600" />
-              <p className="text-slate-400 text-sm">
-                {gastos.length === 0
+            <EmptyState
+              icon={ICONS.gasto}
+              titulo={
+                gastos.length === 0
                   ? 'Sin gastos en este período'
-                  : `Sin gastos ${filtro === 'ordinario' ? 'ordinarios' : 'extraordinarios'}`}
-              </p>
-              {gastos.length === 0 && esAdmin && periodoAbierto && (
-                <button onClick={() => setMostrarForm(true)} className="text-emerald-400 text-sm hover:underline">
-                  Cargar el primer gasto →
-                </button>
-              )}
-              {gastos.length > 0 && (
-                <button onClick={() => setFiltro('todos')} className="text-emerald-400 text-sm hover:underline">
-                  Ver todos los gastos →
-                </button>
-              )}
-            </div>
+                  : `Sin gastos ${filtro === 'ordinario' ? 'ordinarios' : 'extraordinarios'}`
+              }
+              descripcion={
+                gastos.length === 0
+                  ? 'Los gastos son la base para calcular las expensas del período.'
+                  : 'Probá cambiando el filtro para ver otros tipos de gasto.'
+              }
+              accion={gastos.length === 0 && esAdmin && periodoAbierto ? 'Cargar primer gasto' : undefined}
+              onAccion={gastos.length === 0 && esAdmin && periodoAbierto ? () => setMostrarForm(true) : undefined}
+              accionSec={gastos.length > 0 ? 'Ver todos los gastos →' : undefined}
+              onAccionSec={gastos.length > 0 ? () => setFiltro('todos') : undefined}
+            />
           ) : (
             <table className="w-full text-sm">
               <thead className="border-b border-white/[0.06]">

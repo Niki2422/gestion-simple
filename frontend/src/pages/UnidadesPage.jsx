@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout';
+import EmptyState from '../components/EmptyState';
 import api from '../lib/api';
 
 const Icon = ({ path, size = 18, className = '' }) => (
@@ -180,11 +181,13 @@ export default function UnidadesPage() {
         {cargando ? (
           <div className="flex items-center justify-center py-20"><Spinner /></div>
         ) : unidades.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 gap-3">
-            <Icon path={ICONS.edificio} size={32} className="text-slate-600" />
-            <p className="text-slate-400 text-sm">No hay unidades registradas</p>
-            {esAdmin && <button onClick={abrirCrear} className="text-emerald-400 text-sm hover:underline">Crear la primera unidad →</button>}
-          </div>
+          <EmptyState
+            icon={ICONS.edificio}
+            titulo="No hay unidades todavía"
+            descripcion="Registrá las unidades del consorcio para poder asignar propietarios, inquilinos y calcular expensas."
+            accion={esAdmin ? 'Crear primera unidad' : undefined}
+            onAccion={esAdmin ? abrirCrear : undefined}
+          />
         ) : (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {unidades.map(u => {

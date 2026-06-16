@@ -4,16 +4,17 @@
 // ============================================================
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider }  from './context/AuthContext';
-import RutaProtegida     from './components/RutaProtegida';
-import LoginPage         from './pages/LoginPage';
-import DashboardPage     from './pages/DashboardPage';
-import PeriodosPage      from './pages/PeriodosPage';
-import GastosPage        from './pages/GastosPage';
-import UnidadesPage      from './pages/UnidadesPage';
-import ExpensasPage      from './pages/ExpensasPage';
-import UsuariosPage      from './pages/UsuariosPage';
-import NotFoundPage      from './pages/NotFoundPage';
+import { AuthProvider }    from './context/AuthContext';
+import RutaProtegida       from './components/RutaProtegida';
+import LoginPage           from './pages/LoginPage';
+import DashboardPage       from './pages/DashboardPage';
+import PeriodosPage        from './pages/PeriodosPage';
+import GastosPage          from './pages/GastosPage';
+import UnidadesPage        from './pages/UnidadesPage';
+import ExpensasPage        from './pages/ExpensasPage';
+import UsuariosPage        from './pages/UsuariosPage';
+import PresupuestosPage    from './pages/PresupuestosPage';
+import NotFoundPage        from './pages/NotFoundPage';
 
 export default function App() {
   return (
@@ -39,6 +40,9 @@ export default function App() {
           <Route path="/expensas" element={
             <RutaProtegida><ExpensasPage /></RutaProtegida>
           } />
+          <Route path="/presupuestos" element={
+            <RutaProtegida><PresupuestosPage /></RutaProtegida>
+          } />
           <Route path="/usuarios" element={
             <RutaProtegida roles={['administrador']}><UsuariosPage /></RutaProtegida>
           } />
@@ -46,7 +50,7 @@ export default function App() {
           {/* Raíz → dashboard */}
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
-          {/* 404 — cualquier ruta no definida */}
+          {/* 404 */}
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </AuthProvider>
