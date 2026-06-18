@@ -4,10 +4,10 @@
 // ============================================================
 
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout';
-import api from '../lib/api';
+import { apiConsorcio } from '../lib/api';
 
 const Icon = ({ path, size = 20, className = '' }) => (
   <svg width={size} height={size} className={className} fill="none"
@@ -137,9 +137,11 @@ const ErrorScreen = ({ mensaje, onReintentar }) => (
 );
 
 export default function DashboardPage() {
-  const { usuario } = useAuth();
+  const { usuario, consorcioActual } = useAuth();
   const navigate    = useNavigate();
-  const esAdmin     = usuario?.rol === 'administrador';
+  const { cid }     = useParams();
+  const api         = apiConsorcio(cid);
+  const esAdmin     = consorcioActual?.mi_rol === 'administrador';
 
   const [periodos,        setPeriodos]        = useState([]);
   const [gastos,          setGastos]          = useState([]);
@@ -230,7 +232,7 @@ export default function DashboardPage() {
             <Icon path={ICONS.refresh} size={16} />
           </button>
           {esAdmin && periodoActivo && (
-            <button onClick={() => navigate('/gastos')}
+            <button onClick={() => navigate(`/consorcios/${cid}/gastos`)}
               className="flex items-center gap-2 bg-emerald-400 hover:bg-emerald-300
                          text-slate-900 text-sm font-semibold px-4 py-2 rounded-lg transition-all duration-150">
               <Icon path={ICONS.gasto} size={16} />
@@ -276,7 +278,7 @@ export default function DashboardPage() {
             <div className="bg-slate-900/60 border border-white/[0.06] rounded-xl p-5">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-white text-sm font-semibold">Período activo</h2>
-                <button onClick={() => navigate('/periodos')} className="text-slate-500 hover:text-emerald-400 transition-colors">
+                <button onClick={() => navigate(`/consorcios/${cid}/periodos`)} className="text-slate-500 hover:text-emerald-400 transition-colors">
                   <Icon path={ICONS.flecha} size={16} />
                 </button>
               </div>
@@ -290,7 +292,7 @@ export default function DashboardPage() {
                     <span className="text-slate-500">Gastos cargados</span>
                     <span className="text-slate-300">{gastos.length}</span>
                   </div>
-                  <button onClick={() => navigate('/periodos')}
+                  <button onClick={() => navigate(`/consorcios/${cid}/periodos`)}
                     className="mt-2 w-full flex items-center justify-center gap-2 border border-white/[0.08]
                                hover:border-amber-400/40 hover:text-amber-400 text-slate-400 text-xs
                                rounded-lg py-2 transition-all duration-150">
@@ -302,7 +304,7 @@ export default function DashboardPage() {
                 <div className="flex flex-col items-center justify-center py-8 gap-3">
                   <Icon path={ICONS.alerta} size={28} className="text-slate-600" />
                   <p className="text-slate-500 text-sm">No hay período activo</p>
-                  <button onClick={() => navigate('/periodos')} className="text-emerald-400 text-sm hover:underline">
+                  <button onClick={() => navigate(`/consorcios/${cid}/periodos`)} className="text-emerald-400 text-sm hover:underline">
                     Crear período →
                   </button>
                 </div>
@@ -312,7 +314,7 @@ export default function DashboardPage() {
             <div className="bg-slate-900/60 border border-white/[0.06] rounded-xl p-5">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-white text-sm font-semibold">Últimos gastos</h2>
-                <button onClick={() => navigate('/gastos')} className="text-slate-500 hover:text-emerald-400 transition-colors">
+                <button onClick={() => navigate(`/consorcios/${cid}/gastos`)} className="text-slate-500 hover:text-emerald-400 transition-colors">
                   <Icon path={ICONS.flecha} size={16} />
                 </button>
               </div>
@@ -332,7 +334,7 @@ export default function DashboardPage() {
                     </div>
                   ))}
                   {gastos.length > 5 && (
-                    <button onClick={() => navigate('/gastos')} className="text-slate-500 hover:text-emerald-400 text-xs pt-1 transition-colors">
+                    <button onClick={() => navigate(`/consorcios/${cid}/gastos`)} className="text-slate-500 hover:text-emerald-400 text-xs pt-1 transition-colors">
                       Ver todos ({gastos.length}) →
                     </button>
                   )}
@@ -355,7 +357,7 @@ export default function DashboardPage() {
                 </p>
               )}
             </div>
-            <button onClick={() => navigate('/expensas')} className="text-slate-500 hover:text-emerald-400 transition-colors">
+            <button onClick={() => navigate(`/consorcios/${cid}/expensas`)} className="text-slate-500 hover:text-emerald-400 transition-colors">
               <Icon path={ICONS.flecha} size={16} />
             </button>
           </div>
@@ -400,7 +402,7 @@ export default function DashboardPage() {
                 </tbody>
               </table>
               {expensas.length > 8 && (
-                <button onClick={() => navigate('/expensas')} className="text-slate-500 hover:text-emerald-400 text-xs mt-3 transition-colors">
+                <button onClick={() => navigate(`/consorcios/${cid}/expensas`)} className="text-slate-500 hover:text-emerald-400 text-xs mt-3 transition-colors">
                   Ver todas ({expensas.length}) →
                 </button>
               )}
@@ -413,7 +415,7 @@ export default function DashboardPage() {
           <div className="bg-slate-900/60 border border-white/[0.06] rounded-xl p-5">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-white text-sm font-semibold">Unidades</h2>
-              <button onClick={() => navigate('/unidades')} className="text-slate-500 hover:text-emerald-400 transition-colors">
+              <button onClick={() => navigate(`/consorcios/${cid}/unidades`)} className="text-slate-500 hover:text-emerald-400 transition-colors">
                 <Icon path={ICONS.flecha} size={16} />
               </button>
             </div>
@@ -429,7 +431,7 @@ export default function DashboardPage() {
               {unidades.length > 12 && (
                 <div className="bg-slate-800/30 border border-white/[0.05] rounded-lg p-3
                                 flex items-center justify-center cursor-pointer hover:border-emerald-400/30 transition-colors"
-                  onClick={() => navigate('/unidades')}>
+                  onClick={() => navigate(`/consorcios/${cid}/unidades`)}>
                   <span className="text-slate-500 text-xs">+{unidades.length - 12} más</span>
                 </div>
               )}

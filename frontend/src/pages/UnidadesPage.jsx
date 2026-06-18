@@ -4,11 +4,11 @@
 // ============================================================
 
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout';
 import EmptyState from '../components/EmptyState';
-import api from '../lib/api';
+import { apiConsorcio } from '../lib/api';
 
 const Icon = ({ path, size = 18, className = '' }) => (
   <svg width={size} height={size} className={className} fill="none"
@@ -42,9 +42,11 @@ const Modal = ({ titulo, children }) => (
 const FORM_VACIO = { nombre: '', tipo: 'departamento', coeficiente: '', propietarioId: '', inquilinoId: '' };
 
 export default function UnidadesPage() {
-  const { usuario } = useAuth();
+  const { usuario, consorcioActual } = useAuth();
   const navigate    = useNavigate();
-  const esAdmin     = usuario?.rol === 'administrador';
+  const { cid }     = useParams();
+  const api         = apiConsorcio(cid);
+  const esAdmin     = consorcioActual?.mi_rol === 'administrador';
 
   const [unidades,     setUnidades]     = useState([]);
   const [usuarios,     setUsuarios]     = useState([]);
@@ -147,7 +149,7 @@ export default function UnidadesPage() {
       <header className="sticky top-0 z-10 border-b border-white/[0.06] bg-[hsl(222,47%,7%)]/80
                          backdrop-blur-sm px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/dashboard')} className="text-slate-500 hover:text-white transition-colors">
+          <button onClick={() => navigate(`/consorcios/${cid}/dashboard`)} className="text-slate-500 hover:text-white transition-colors">
             <Icon path={ICONS.atras} size={18} />
           </button>
           <div>

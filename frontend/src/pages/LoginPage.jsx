@@ -53,7 +53,7 @@ export default function LoginPage() {
   const { login } = useAuth();
   const navigate  = useNavigate();
   const location  = useLocation();
-  const destino   = location.state?.from?.pathname || '/dashboard';
+  const destino   = location.state?.from?.pathname || '/consorcios';
 
   const [form, setForm]         = useState({ email: '', contrasena: '' });
   const [verPass, setVerPass]   = useState(false);

@@ -1,16 +1,6 @@
 // ============================================================
-// calculadora.servicio.js
-// Motor de cálculo de expensas.
-//
-// LÓGICA DE NEGOCIO:
-//   - Gastos ordinarios      -> los paga el INQUILINO
-//   - Gastos extraordinarios -> los paga el PROPIETARIO
-//
-// FORMULA:
-//   monto_unidad = total_gastos * (coeficiente_unidad / 100)
-//
-// Todo se ejecuta dentro de una transaccion SQL.
-// Si algo falla, se revierten todos los cambios (ROLLBACK).
+// calculadora.servicio.js  —  multi-consorcio
+// Ubicación: src/service/calculadora.servicio.js
 // ============================================================
 
 const { pool }             = require('../config/baseDatos');
@@ -20,30 +10,25 @@ const periodoModelo        = require('../models/periodo.modelo');
 const unidadModelo         = require('../models/unidad.modelo');
 const { ErrorOperacional } = require('../middlewares/manejarErrores');
 
-const calcularYCerrarPeriodo = async (periodoId) => {
+const redondear = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 
-  const periodo = await periodoModelo.buscarPorId(periodoId);
-  if (!periodo) {
-    throw new ErrorOperacional('Período no encontrado', 404);
-  }
+const calcularYCerrarPeriodo = async (periodoId, consorcioId) => {
+
+  const periodo = await periodoModelo.buscarPorId(periodoId, consorcioId);
+  if (!periodo) throw new ErrorOperacional('Período no encontrado', 404);
   if (periodo.cerrado) {
-    throw new ErrorOperacional(
-      `El período ${periodo.periodo} ya fue cerrado`,
-      400
-    );
+    throw new ErrorOperacional(`El período ${periodo.periodo} ya fue cerrado`, 400);
   }
 
-  const unidades = await unidadModelo.listarTodas();
-  const unidadesActivas = unidades.filter((u) => u.activa);
-
-  if (unidadesActivas.length === 0) {
+  const unidades = await unidadModelo.listarTodas(consorcioId);
+  const activas  = unidades.filter(u => u.activa);
+  if (activas.length === 0) {
     throw new ErrorOperacional('No hay unidades activas para calcular expensas', 400);
   }
 
-  const totales = await gastoModelo.sumarPorTipo(periodoId);
-  const ordinario      = parseFloat(totales.total_ordinario      || 0);
+  const totales      = await gastoModelo.sumarPorTipo(periodoId);
+  const ordinario    = parseFloat(totales.total_ordinario      || 0);
   const extraordinario = parseFloat(totales.total_extraordinario || 0);
-
   if (ordinario === 0 && extraordinario === 0) {
     throw new ErrorOperacional(
       'No hay gastos cargados en este período. Cargá al menos un gasto antes de cerrar.',
@@ -52,33 +37,32 @@ const calcularYCerrarPeriodo = async (periodoId) => {
   }
 
   const cliente = await pool.connect();
-
   try {
     await cliente.query('BEGIN');
 
-    await expensaModelo.eliminarPorPeriodo(periodoId);
+    // Eliminar expensas previas del período (recalculo)
+    await cliente.query('DELETE FROM expensas WHERE periodo_id = $1', [periodoId]);
 
-    const expensasGeneradas = [];
-
-    for (const unidad of unidadesActivas) {
-      const coeficiente         = parseFloat(unidad.coeficiente);
-      const montoOrdinario      = redondear(ordinario      * coeficiente / 100);
-      const montoExtraordinario = redondear(extraordinario * coeficiente / 100);
-      const montoTotal          = redondear(montoOrdinario + montoExtraordinario);
+    const detalle = [];
+    for (const unidad of activas) {
+      const coef  = parseFloat(unidad.coeficiente);
+      const montoOrd  = redondear(ordinario      * coef / 100);
+      const montoExt  = redondear(extraordinario * coef / 100);
+      const montoTot  = redondear(montoOrd + montoExt);
 
       await cliente.query(
-        `INSERT INTO expensas_unidad
-           (unidad_id, periodo_id, monto_ordinario, monto_extraordinario, monto_total)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [unidad.id, periodoId, montoOrdinario, montoExtraordinario, montoTotal]
+        `INSERT INTO expensas
+           (unidad_id, periodo_id, monto_ordinario, monto_extraordinario, monto_total, unidad_nombre)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [unidad.id, periodoId, montoOrd, montoExt, montoTot, unidad.nombre]
       );
 
-      expensasGeneradas.push({
+      detalle.push({
         unidad:               unidad.nombre,
-        coeficiente:          coeficiente,
-        monto_ordinario:      montoOrdinario,
-        monto_extraordinario: montoExtraordinario,
-        monto_total:          montoTotal,
+        coeficiente:          coef,
+        monto_ordinario:      montoOrd,
+        monto_extraordinario: montoExt,
+        monto_total:          montoTot,
       });
     }
 
@@ -97,20 +81,15 @@ const calcularYCerrarPeriodo = async (periodoId) => {
       total_ordinario:      ordinario,
       total_extraordinario: extraordinario,
       total_general:        redondear(ordinario + extraordinario),
-      unidades_calculadas:  expensasGeneradas.length,
-      detalle:              expensasGeneradas,
+      unidades_calculadas:  detalle.length,
+      detalle,
     };
-
   } catch (error) {
     await cliente.query('ROLLBACK');
     throw error;
   } finally {
     cliente.release();
   }
-};
-
-const redondear = (numero) => {
-  return Math.round((numero + Number.EPSILON) * 100) / 100;
 };
 
 module.exports = { calcularYCerrarPeriodo };

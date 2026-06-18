@@ -1,10 +1,10 @@
 // ============================================================
-// Layout.jsx — Sidebar compartido entre todas las páginas
+// Layout.jsx — Sidebar compartido, multi-consorcio
 // Ubicación: src/components/Layout.jsx
 // ============================================================
 
 import { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../lib/api';
 
@@ -30,24 +30,24 @@ const ICONS = {
   check:        'M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
   ojo:          'M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.964-7.178z M15 12a3 3 0 11-6 0 3 3 0 016 0z',
   ojoCerrado:   'M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88',
+  cambiar:      'M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99',
 };
 
-// Ítems base (todos los roles)
+// Ítems base — visibles para todos los roles dentro del consorcio
 const NAV_BASE = [
-  { path: '/dashboard',    icon: 'dashboard',    label: 'Dashboard' },
-  { path: '/expensas',     icon: 'expensa',      label: 'Expensas' },
-  { path: '/presupuestos', icon: 'presupuesto',  label: 'Presupuestos' },
-  { path: '/unidades',     icon: 'edificio',     label: 'Unidades' },
-  { path: '/periodos',     icon: 'calendario',   label: 'Períodos' },
+  { path: 'dashboard',    icon: 'dashboard',    label: 'Dashboard' },
+  { path: 'expensas',     icon: 'expensa',      label: 'Expensas' },
+  { path: 'presupuestos', icon: 'presupuesto',  label: 'Presupuestos' },
+  { path: 'unidades',     icon: 'edificio',     label: 'Unidades' },
+  { path: 'periodos',     icon: 'calendario',   label: 'Períodos' },
 ];
 
-// Ítems extra solo para admin
+// Ítems extra solo para el rol "administrador" DENTRO del consorcio
 const NAV_ADMIN = [
-  { path: '/gastos',   icon: 'gasto',    label: 'Gastos' },
-  { path: '/usuarios', icon: 'usuarios', label: 'Usuarios' },
+  { path: 'gastos',   icon: 'gasto',    label: 'Gastos' },
+  { path: 'usuarios', icon: 'usuarios', label: 'Usuarios' },
 ];
 
-// ── Input contraseña reutilizable ──────────────────────────
 const InputPass = ({ label, value, ver, onVer, onChange }) => (
   <div className="space-y-1.5">
     <label className="text-slate-400 text-xs uppercase tracking-wider">{label}</label>
@@ -64,7 +64,6 @@ const InputPass = ({ label, value, ver, onVer, onChange }) => (
   </div>
 );
 
-// ── Modal cambiar contraseña ───────────────────────────────
 function ModalContrasena({ onCerrar }) {
   const [form, setForm]           = useState({ actual: '', nueva: '', confirmar: '' });
   const [verActual, setVerActual] = useState(false);
@@ -75,15 +74,9 @@ function ModalContrasena({ onCerrar }) {
 
   const handleGuardar = async () => {
     setError('');
-    if (!form.actual || !form.nueva || !form.confirmar) {
-      setError('Completá todos los campos'); return;
-    }
-    if (form.nueva.length < 6) {
-      setError('La nueva contraseña debe tener al menos 6 caracteres'); return;
-    }
-    if (form.nueva !== form.confirmar) {
-      setError('Las contraseñas nuevas no coinciden'); return;
-    }
+    if (!form.actual || !form.nueva || !form.confirmar) { setError('Completá todos los campos'); return; }
+    if (form.nueva.length < 6) { setError('La nueva contraseña debe tener al menos 6 caracteres'); return; }
+    if (form.nueva !== form.confirmar) { setError('Las contraseñas nuevas no coinciden'); return; }
     setGuardando(true);
     try {
       await api.patch('/usuarios/mi-contrasena', {
@@ -107,7 +100,6 @@ function ModalContrasena({ onCerrar }) {
             <Icon path={ICONS.x} size={18} />
           </button>
         </div>
-
         {exito ? (
           <div className="flex flex-col items-center justify-center py-6 gap-3">
             <div className="w-12 h-12 rounded-full bg-emerald-400/10 border border-emerald-400/20 flex items-center justify-center">
@@ -126,13 +118,10 @@ function ModalContrasena({ onCerrar }) {
             <InputPass label="Confirmar nueva contraseña" value={form.confirmar} ver={verNueva}
               onVer={() => setVerNueva(!verNueva)}
               onChange={e => { setForm({...form, confirmar: e.target.value}); setError(''); }} />
-
             {error && <p className="text-red-400 text-xs">{error}</p>}
-
             <div className="flex gap-3 pt-1">
               <button onClick={onCerrar}
-                className="flex-1 border border-white/[0.08] text-slate-400 hover:text-white
-                           rounded-lg py-2.5 text-sm transition-all">
+                className="flex-1 border border-white/[0.08] text-slate-400 hover:text-white rounded-lg py-2.5 text-sm transition-all">
                 Cancelar
               </button>
               <button onClick={handleGuardar} disabled={guardando}
@@ -150,34 +139,61 @@ function ModalContrasena({ onCerrar }) {
   );
 }
 
-// ── Layout ─────────────────────────────────────────────────
 export default function Layout({ children }) {
-  const { usuario, logout } = useAuth();
+  const { usuario, logout, consorcioActual, salirDeConsorcio } = useAuth();
   const navigate  = useNavigate();
   const location  = useLocation();
-  const esAdmin   = usuario?.rol === 'administrador';
+  const { cid }   = useParams();
+
+  // Rol dentro de ESTE consorcio (no el rol_plataforma global)
+  const rolEnConsorcio = consorcioActual?.mi_rol;
+  const esAdminConsorcio = rolEnConsorcio === 'administrador';
+
   const [abierto, setAbierto]         = useState(false);
   const [modalPass, setModalPass]     = useState(false);
   const [modalLogout, setModalLogout] = useState(false);
 
-  const navItems = esAdmin ? [...NAV_BASE, ...NAV_ADMIN] : NAV_BASE;
+  const navItems = esAdminConsorcio ? [...NAV_BASE, ...NAV_ADMIN] : NAV_BASE;
 
-  const irA = (path) => { navigate(path); setAbierto(false); };
+  const base = `/consorcios/${cid}`;
+  const irA  = (path) => { navigate(`${base}/${path}`); setAbierto(false); };
+
+  const handleCambiarConsorcio = () => {
+    salirDeConsorcio();
+    navigate('/consorcios');
+  };
 
   const SidebarContenido = () => (
     <>
-      {/* Logo */}
-      <div className="flex items-center gap-2.5 px-3 py-3 mb-4">
-        <div className="w-8 h-8 rounded-lg bg-emerald-400/10 border border-emerald-400/30
-                        flex items-center justify-center shrink-0">
-          <Icon path={ICONS.edificio} size={16} className="text-emerald-400" />
+      {/* Logo + consorcio activo */}
+      <div className="px-3 py-3 mb-4 space-y-2">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-emerald-400/10 border border-emerald-400/30
+                          flex items-center justify-center shrink-0">
+            <Icon path={ICONS.edificio} size={16} className="text-emerald-400" />
+          </div>
+          <span className="text-white text-sm font-semibold tracking-wide">Consorcio</span>
         </div>
-        <span className="text-white text-sm font-semibold tracking-wide">Consorcio</span>
+
+        {consorcioActual && (
+          <button onClick={handleCambiarConsorcio}
+            className="w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg
+                       bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.06]
+                       transition-all group">
+            <div className="min-w-0 text-left">
+              <p className="text-slate-300 text-xs font-medium truncate">{consorcioActual.nombre}</p>
+              <p className="text-slate-600 text-[11px] truncate">{consorcioActual.direccion}</p>
+            </div>
+            <Icon path={ICONS.cambiar} size={13}
+              className="text-slate-600 group-hover:text-emerald-400 transition-colors shrink-0" />
+          </button>
+        )}
       </div>
 
       {/* Nav */}
       {navItems.map(item => {
-        const active = location.pathname === item.path;
+        const fullPath = `${base}/${item.path}`;
+        const active   = location.pathname === fullPath;
         return (
           <button key={item.path} onClick={() => irA(item.path)}
             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-150
@@ -200,7 +216,7 @@ export default function Layout({ children }) {
           </div>
           <div className="min-w-0">
             <p className="text-white text-xs font-medium truncate">{usuario?.nombre ?? 'Usuario'}</p>
-            <p className="text-slate-500 text-xs capitalize">{usuario?.rol ?? ''}</p>
+            <p className="text-slate-500 text-xs capitalize">{rolEnConsorcio ?? ''}</p>
           </div>
         </div>
 
@@ -223,13 +239,10 @@ export default function Layout({ children }) {
 
   return (
     <div className="min-h-screen flex bg-[hsl(222,47%,7%)]">
-
-      {/* Sidebar desktop */}
       <aside className="hidden lg:flex w-60 shrink-0 flex-col border-r border-white/[0.06] p-4 gap-1">
         <SidebarContenido />
       </aside>
 
-      {/* Drawer mobile */}
       {abierto && (
         <div className="lg:hidden fixed inset-0 z-40 flex">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setAbierto(false)} />
@@ -244,20 +257,20 @@ export default function Layout({ children }) {
         </div>
       )}
 
-      {/* Contenido */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Barra mobile */}
         <div className="lg:hidden flex items-center justify-between px-4 py-3
                         border-b border-white/[0.06] bg-[hsl(222,47%,7%)] sticky top-0 z-30">
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-7 h-7 rounded-lg bg-emerald-400/10 border border-emerald-400/30
                             flex items-center justify-center shrink-0">
               <Icon path={ICONS.edificio} size={14} className="text-emerald-400" />
             </div>
-            <span className="text-white text-sm font-semibold">Consorcio</span>
+            <span className="text-white text-sm font-semibold truncate">
+              {consorcioActual?.nombre || 'Consorcio'}
+            </span>
           </div>
           <button onClick={() => setAbierto(true)}
-            className="text-slate-400 hover:text-white transition-colors p-1">
+            className="text-slate-400 hover:text-white transition-colors p-1 shrink-0">
             <Icon path={ICONS.hamburger} size={22} />
           </button>
         </div>
@@ -267,7 +280,6 @@ export default function Layout({ children }) {
         </main>
       </div>
 
-      {/* Modal cambiar contraseña */}
       {modalPass && <ModalContrasena onCerrar={() => setModalPass(false)} />}
 
       {modalLogout && (

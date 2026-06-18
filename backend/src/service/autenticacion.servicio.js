@@ -1,62 +1,48 @@
 // ============================================================
-// autenticacion.servicio.js
-// Responsabilidad: lógica de negocio del login.
-// El controlador llama a este servicio, no toca la DB directo.
+// autenticacion.servicio.js  —  multi-consorcio
+// Ubicación: src/service/autenticacion.servicio.js
 // ============================================================
 
 const bcrypt = require('bcryptjs');
 const jwt    = require('jsonwebtoken');
 
-const usuarioModelo          = require('../models/usuario.modelo');
-const { ErrorOperacional }   = require('../middlewares/manejarErrores');
+const usuarioModelo        = require('../models/usuario.modelo');
+const { ErrorOperacional } = require('../middlewares/manejarErrores');
 
-// ── Login ──────────────────────────────────────────────────
 const login = async (email, contrasena) => {
-
-  // 1. Buscar el usuario por email
   const usuario = await usuarioModelo.buscarPorEmail(email);
-  if (!usuario) {
-    // Misma respuesta para email y contraseña incorrectos.
-    // No dar pistas sobre qué campo falló (seguridad básica).
-    throw new ErrorOperacional('Credenciales inválidas', 401);
-  }
+  if (!usuario) throw new ErrorOperacional('Credenciales inválidas', 401);
 
-  // 2. Verificar contraseña con bcrypt
-  const contrasenaCorrecta = await bcrypt.compare(contrasena, usuario.contrasena_hash);
-  if (!contrasenaCorrecta) {
-    throw new ErrorOperacional('Credenciales inválidas', 401);
-  }
+  const ok = await bcrypt.compare(contrasena, usuario.contrasena_hash);
+  if (!ok) throw new ErrorOperacional('Credenciales inválidas', 401);
 
-  // 3. Generar JWT con datos mínimos necesarios
-  // No incluir datos sensibles en el token (contraseña, etc.)
+  // Obtener los consorcios a los que pertenece
+  const consorcios = await usuarioModelo.obtenerConsorcios(usuario.id);
+
   const payload = {
-    id:     usuario.id,
-    nombre: usuario.nombre,
-    email:  usuario.email,
-    rol:    usuario.rol,
+    id:             usuario.id,
+    nombre:         usuario.nombre,
+    email:          usuario.email,
+    rol:            usuario.rol_plataforma,   // alias legacy
+    rol_plataforma: usuario.rol_plataforma,
   };
 
   const token = jwt.sign(payload, process.env.JWT_SECRETO, {
     expiresIn: process.env.JWT_EXPIRACION || '8h',
   });
 
-  // 4. Devolver token y datos del usuario (sin la contraseña)
   return {
     token,
     usuario: {
-      id:     usuario.id,
-      nombre: usuario.nombre,
-      email:  usuario.email,
-      rol:    usuario.rol,
+      id:             usuario.id,
+      nombre:         usuario.nombre,
+      email:          usuario.email,
+      rol_plataforma: usuario.rol_plataforma,
+      consorcios,     // el frontend decide a cuál entrar
     },
   };
 };
 
-// ── Hashear contraseña ─────────────────────────────────────
-// Función utilitaria usada también al crear usuarios
-const hashearContrasena = async (contrasena) => {
-  const COSTO_BCRYPT = 10; // A mayor costo, más seguro pero más lento
-  return bcrypt.hash(contrasena, COSTO_BCRYPT);
-};
+const hashearContrasena = async (contrasena) => bcrypt.hash(contrasena, 10);
 
 module.exports = { login, hashearContrasena };

@@ -4,11 +4,10 @@
 // ============================================================
 
 import { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout';
-import EmptyState from '../components/EmptyState';
-import api from '../lib/api';
+import { apiConsorcio } from '../lib/api';
 
 const Icon = ({ path, size = 18, className = '' }) => (
   <svg width={size} height={size} className={className} fill="none"
@@ -45,10 +44,12 @@ const Modal = ({ titulo, children }) => (
 );
 
 export default function GastosPage() {
-  const { usuario } = useAuth();
+  const { usuario, consorcioActual } = useAuth();
   const navigate    = useNavigate();
+  const { cid }     = useParams();
+  const api         = apiConsorcio(cid);
   const [params]    = useSearchParams();
-  const esAdmin     = usuario?.rol === 'administrador';
+  const esAdmin     = consorcioActual?.mi_rol === 'administrador';
 
   const [periodos,      setPeriodos]      = useState([]);
   const [periodoSel,    setPeriodoSel]    = useState(params.get('periodoId') || '');
@@ -135,7 +136,7 @@ export default function GastosPage() {
       <header className="sticky top-0 z-10 border-b border-white/[0.06] bg-[hsl(222,47%,7%)]/80
                          backdrop-blur-sm px-6 py-4 flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/dashboard')} className="text-slate-500 hover:text-white transition-colors">
+          <button onClick={() => navigate(`/consorcios/${cid}/dashboard`)} className="text-slate-500 hover:text-white transition-colors">
             <Icon path={ICONS.atras} size={18} />
           </button>
           <div>
@@ -221,23 +222,24 @@ export default function GastosPage() {
           {cargando ? (
             <div className="flex items-center justify-center py-20"><Spinner /></div>
           ) : gastosFiltrados.length === 0 ? (
-            <EmptyState
-              icon={ICONS.gasto}
-              titulo={
-                gastos.length === 0
+            <div className="flex flex-col items-center justify-center py-20 gap-3">
+              <Icon path={ICONS.gasto} size={32} className="text-slate-600" />
+              <p className="text-slate-400 text-sm">
+                {gastos.length === 0
                   ? 'Sin gastos en este período'
-                  : `Sin gastos ${filtro === 'ordinario' ? 'ordinarios' : 'extraordinarios'}`
-              }
-              descripcion={
-                gastos.length === 0
-                  ? 'Los gastos son la base para calcular las expensas del período.'
-                  : 'Probá cambiando el filtro para ver otros tipos de gasto.'
-              }
-              accion={gastos.length === 0 && esAdmin && periodoAbierto ? 'Cargar primer gasto' : undefined}
-              onAccion={gastos.length === 0 && esAdmin && periodoAbierto ? () => setMostrarForm(true) : undefined}
-              accionSec={gastos.length > 0 ? 'Ver todos los gastos →' : undefined}
-              onAccionSec={gastos.length > 0 ? () => setFiltro('todos') : undefined}
-            />
+                  : `Sin gastos ${filtro === 'ordinario' ? 'ordinarios' : 'extraordinarios'}`}
+              </p>
+              {gastos.length === 0 && esAdmin && periodoAbierto && (
+                <button onClick={() => setMostrarForm(true)} className="text-emerald-400 text-sm hover:underline">
+                  Cargar el primer gasto →
+                </button>
+              )}
+              {gastos.length > 0 && (
+                <button onClick={() => setFiltro('todos')} className="text-emerald-400 text-sm hover:underline">
+                  Ver todos los gastos →
+                </button>
+              )}
+            </div>
           ) : (
             <table className="w-full text-sm">
               <thead className="border-b border-white/[0.06]">

@@ -1,23 +1,20 @@
 // ============================================================
-// unidades.rutas.js
-// Lectura: todos los roles autenticados.
-// Escritura: solo administrador.
+// unidades.rutas.js  —  multi-consorcio
+// Ubicación: src/routes/unidades.rutas.js
+// Montada bajo /api/consorcios/:cid/unidades
 // ============================================================
 
-const express    = require('express');
-const router     = express.Router();
+const router = require('express').Router({ mergeParams: true });
+const ctrl   = require('../controller/unidades.controlador');
+const { soloAdminConsorcio } = require('../middlewares/verificarAccesoConsorcio');
 
-const unidadesControlador = require('../controller/unidades.controlador');
-const autenticar          = require('../middlewares/autenticar');
-const autorizar           = require('../middlewares/autorizar');
+// Lectura — cualquier miembro del consorcio
+router.get('/',    ctrl.listar);
+router.get('/:id', ctrl.obtenerUna);
 
-// Lectura — cualquier usuario autenticado puede ver unidades
-router.get('/',    autenticar, unidadesControlador.listar);
-router.get('/:id', autenticar, unidadesControlador.obtenerUna);
-
-// Escritura — solo administrador
-router.post('/',      autenticar, autorizar('administrador'), unidadesControlador.crear);
-router.put('/:id',    autenticar, autorizar('administrador'), unidadesControlador.actualizar);
-router.delete('/:id', autenticar, autorizar('administrador'), unidadesControlador.desactivar);
+// Escritura — solo administrador del consorcio
+router.post('/',      soloAdminConsorcio, ctrl.crear);
+router.put('/:id',    soloAdminConsorcio, ctrl.actualizar);
+router.delete('/:id', soloAdminConsorcio, ctrl.desactivar);
 
 module.exports = router;

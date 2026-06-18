@@ -1,7 +1,5 @@
 // ============================================================
-// api.js — Cliente Axios central
-// Agrega automáticamente el token JWT a cada request.
-// Si el servidor devuelve 401, limpia la sesión y redirige.
+// api.js — Cliente Axios central + helper multi-consorcio
 // ============================================================
 
 import axios from 'axios';
@@ -11,26 +9,35 @@ const api = axios.create({
   timeout: 10000,
 });
 
-// ── Request: inyectar token ────────────────────────────────
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
+  if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
-// ── Response: manejar 401 global ──────────────────────────
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('usuario');
+      localStorage.removeItem('consorcioActual');
       window.location.href = '/login';
     }
     return Promise.reject(error);
   }
 );
+
+// ── Helper multi-consorcio ─────────────────────────────────
+// Uso: apiConsorcio(cid).get('/unidades')
+//      apiConsorcio(cid).post('/gastos', body)
+// Arma automáticamente /consorcios/:cid/<lo que pongas>
+export const apiConsorcio = (cid) => ({
+  get:    (url, config)       => api.get(`/consorcios/${cid}${url}`, config),
+  post:   (url, body, config) => api.post(`/consorcios/${cid}${url}`, body, config),
+  put:    (url, body, config) => api.put(`/consorcios/${cid}${url}`, body, config),
+  patch:  (url, body, config) => api.patch(`/consorcios/${cid}${url}`, body, config),
+  delete: (url, config)       => api.delete(`/consorcios/${cid}${url}`, config),
+});
 
 export default api;

@@ -1,74 +1,51 @@
 // ============================================================
-// unidades.controlador.js
+// unidades.controlador.js  —  multi-consorcio
+// Ubicación: src/controller/unidades.controlador.js
 // ============================================================
 
 const unidadesServicio = require('../service/unidades.servicio');
 
-// GET /api/unidades
-// El administrador ve todas. Propietario e inquilino ven las suyas.
 const listar = async (req, res, next) => {
   try {
-    const { id, rol } = req.usuario;
-    const unidades = await unidadesServicio.listarPorUsuario(id, rol);
+    const unidades = await unidadesServicio.listarPorUsuario(
+      req.usuario.id,
+      req.rolEnConsorcio,
+      req.consorcioId
+    );
     res.json({ exito: true, datos: unidades });
-  } catch (error) {
-    next(error);
-  }
+  } catch (e) { next(e); }
 };
 
-// GET /api/unidades/:id
 const obtenerUna = async (req, res, next) => {
   try {
-    const unidad = await unidadesServicio.obtenerPorId(req.params.id);
+    const unidad = await unidadesServicio.obtenerPorId(req.params.id, req.consorcioId);
     res.json({ exito: true, datos: unidad });
-  } catch (error) {
-    next(error);
-  }
+  } catch (e) { next(e); }
 };
 
-// POST /api/unidades
 const crear = async (req, res, next) => {
   try {
     const { nombre, tipo, coeficiente, propietarioId, inquilinoId } = req.body;
     const unidad = await unidadesServicio.crear({
-      nombre, tipo, coeficiente, propietarioId, inquilinoId
+      nombre, tipo, coeficiente, propietarioId, inquilinoId,
+      consorcioId: req.consorcioId,
     });
-    res.status(201).json({
-      exito:   true,
-      mensaje: 'Unidad creada correctamente',
-      datos:   unidad,
-    });
-  } catch (error) {
-    next(error);
-  }
+    res.status(201).json({ exito: true, mensaje: 'Unidad creada correctamente', datos: unidad });
+  } catch (e) { next(e); }
 };
 
-// PUT /api/unidades/:id
 const actualizar = async (req, res, next) => {
   try {
-    const unidad = await unidadesServicio.actualizar(req.params.id, req.body);
-    res.json({
-      exito:   true,
-      mensaje: 'Unidad actualizada correctamente',
-      datos:   unidad,
-    });
-  } catch (error) {
-    next(error);
-  }
+    const unidad = await unidadesServicio.actualizar(req.params.id, req.body, req.consorcioId);
+    res.json({ exito: true, mensaje: 'Unidad actualizada correctamente', datos: unidad });
+  } catch (e) { next(e); }
 };
 
-// DELETE /api/unidades/:id
 const desactivar = async (req, res, next) => {
   try {
-    const unidad = await unidadesServicio.desactivar(req.params.id);
-    res.json({
-      exito:   true,
-      mensaje: 'Unidad desactivada correctamente',
-      datos:   unidad,
-    });
-  } catch (error) {
-    next(error);
-  }
+    const unidad = await unidadesServicio.desactivar(req.params.id, req.consorcioId);
+    res.json({ exito: true, mensaje: 'Unidad desactivada correctamente', datos: unidad });
+  } catch (e) { next(e); }
 };
 
 module.exports = { listar, obtenerUna, crear, actualizar, desactivar };

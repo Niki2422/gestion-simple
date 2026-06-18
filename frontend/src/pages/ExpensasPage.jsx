@@ -4,10 +4,10 @@
 // ============================================================
 
 import { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout';
-import api from '../lib/api';
+import { apiConsorcio } from '../lib/api';
 
 const Icon = ({ path, size = 18, className = '' }) => (
   <svg width={size} height={size} className={className} fill="none"
@@ -32,7 +32,8 @@ const Badge = ({ children, variant = 'default' }) => {
 };
 const Spinner = ({ size = 5 }) => <div className={`w-${size} h-${size} rounded-full border-2 border-emerald-400 border-t-transparent animate-spin`} />;
 
-function MarcarPagadaBtn({ expensaId, onPagada }) {
+function MarcarPagadaBtn({ expensaId, onPagada, cid }) {
+  const api = apiConsorcio(cid);
   const [loading, setLoading] = useState(false);
   const handleClick = async () => {
     setLoading(true);
@@ -51,7 +52,8 @@ function MarcarPagadaBtn({ expensaId, onPagada }) {
   );
 }
 
-function RevertirPagoBtn({ expensaId, onRevertida }) {
+function RevertirPagoBtn({ expensaId, onRevertida, cid }) {
+  const api = apiConsorcio(cid);
   const [loading, setLoading] = useState(false);
   const [confirm, setConfirm] = useState(false);
 
@@ -77,7 +79,8 @@ function RevertirPagoBtn({ expensaId, onRevertida }) {
 }
 
 // ── Fila de historial expandible (para propietario) ────────
-function FilaPeriodoHistorial({ periodo, email }) {
+function FilaPeriodoHistorial({ periodo, email, cid }) {
+  const api = apiConsorcio(cid);
   const [abierto,  setAbierto]  = useState(false);
   const [expensas, setExpensas] = useState([]);
   const [cargando, setCargando] = useState(false);
@@ -170,7 +173,8 @@ function FilaPeriodoHistorial({ periodo, email }) {
 }
 
 // ── Vista admin (tabla por período) ────────────────────────
-function VistaAdmin({ periodos, params, navigate }) {
+function VistaAdmin({ periodos, params, navigate, cid }) {
+  const api = apiConsorcio(cid);
   const [periodoSel, setPeriodoSel] = useState(params.get('periodoId') || '');
   const [expensas,   setExpensas]   = useState([]);
   const [cargando,   setCargando]   = useState(false);
@@ -221,7 +225,7 @@ function VistaAdmin({ periodos, params, navigate }) {
       <header className="sticky top-0 z-10 border-b border-white/[0.06] bg-[hsl(222,47%,7%)]/80
                          backdrop-blur-sm px-6 py-4 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/dashboard')} className="text-slate-500 hover:text-white transition-colors">
+          <button onClick={() => navigate(`/consorcios/${cid}/dashboard`)} className="text-slate-500 hover:text-white transition-colors">
             <Icon path={ICONS.atras} size={18} />
           </button>
           <div>
@@ -292,7 +296,7 @@ function VistaAdmin({ periodos, params, navigate }) {
                   : expensas.length === 0 ? 'Sin expensas en este período' : `Sin expensas ${filtro === 'pendiente' ? 'pendientes' : 'pagadas'}`}
               </p>
               {periodoActual?.cerrado === false && (
-                <button onClick={() => navigate('/periodos')} className="text-emerald-400 text-sm hover:underline">
+                <button onClick={() => navigate(`/consorcios/${cid}/periodos`)} className="text-emerald-400 text-sm hover:underline">
                   Ir a períodos →
                 </button>
               )}
@@ -321,8 +325,8 @@ function VistaAdmin({ periodos, params, navigate }) {
                     </td>
                           <td className="px-5 py-3.5 text-right">
                           {!e.pagado
-                          ? <MarcarPagadaBtn expensaId={e.id} onPagada={onPagada} />
-                          : <RevertirPagoBtn expensaId={e.id} onRevertida={onRevertida} />
+                          ? <MarcarPagadaBtn expensaId={e.id} onPagada={onPagada} cid={cid} />
+                          : <RevertirPagoBtn expensaId={e.id} onRevertida={onRevertida} cid={cid} />
                           }
                           </td>
                   </tr>
@@ -345,14 +349,14 @@ function VistaAdmin({ periodos, params, navigate }) {
 }
 
 // ── Vista propietario/inquilino (historial) ────────────────
-function VistaHistorial({ periodos, navigate, usuario }) {
+function VistaHistorial({ periodos, navigate, usuario, cid }) {
   const periodosCerrados = periodos.filter(p => p.cerrado === true);
 
   return (
     <>
       <header className="sticky top-0 z-10 border-b border-white/[0.06] bg-[hsl(222,47%,7%)]/80
                          backdrop-blur-sm px-6 py-4 flex items-center gap-3">
-        <button onClick={() => navigate('/dashboard')} className="text-slate-500 hover:text-white transition-colors">
+        <button onClick={() => navigate(`/consorcios/${cid}/dashboard`)} className="text-slate-500 hover:text-white transition-colors">
           <Icon path={ICONS.atras} size={18} />
         </button>
         <div>
@@ -371,7 +375,7 @@ function VistaHistorial({ periodos, navigate, usuario }) {
           </div>
         ) : (
           periodosCerrados.map(p => (
-            <FilaPeriodoHistorial key={p.id} periodo={p} email={usuario?.email} />
+            <FilaPeriodoHistorial key={p.id} periodo={p} email={usuario?.email} cid={cid} />
           ))
         )}
       </div>
@@ -381,10 +385,12 @@ function VistaHistorial({ periodos, navigate, usuario }) {
 
 // ── Página principal ───────────────────────────────────────
 export default function ExpensasPage() {
-  const { usuario } = useAuth();
+  const { usuario, consorcioActual } = useAuth();
   const navigate    = useNavigate();
+  const { cid }     = useParams();
+  const api         = apiConsorcio(cid);
   const [params]    = useSearchParams();
-  const esAdmin     = usuario?.rol === 'administrador';
+  const esAdmin     = consorcioActual?.mi_rol === 'administrador';
 
   const [periodos,  setPeriodos]  = useState([]);
   const [cargando,  setCargando]  = useState(true);
@@ -408,8 +414,8 @@ export default function ExpensasPage() {
   return (
     <Layout>
       {esAdmin
-        ? <VistaAdmin periodos={periodos} params={params} navigate={navigate} />
-        : <VistaHistorial periodos={periodos} navigate={navigate} usuario={usuario} />
+        ? <VistaAdmin periodos={periodos} params={params} navigate={navigate} cid={cid} />
+        : <VistaHistorial periodos={periodos} navigate={navigate} usuario={usuario} cid={cid} />
       }
     </Layout>
   );

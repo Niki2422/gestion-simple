@@ -1,14 +1,22 @@
 // ============================================================
-// UsuariosPage.jsx — Solo administrador
+// UsuariosPage.jsx — Solo administrador del consorcio
 // Ubicación: src/pages/UsuariosPage.jsx
+//
+// Gestiona la membresía de usuarios DENTRO de un consorcio.
+//   - Crear: si el email ya existe en la plataforma, se agrega
+//     al consorcio con el rol elegido; si no existe, se crea.
+//   - Editar: solo permite cambiar el rol dentro del consorcio
+//     (nombre/email son globales a la plataforma).
+//   - Eliminar: quita la membresía del consorcio (no borra
+//     al usuario de la plataforma).
 // ============================================================
- 
+
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout';
-import api from '../lib/api';
- 
+import { apiConsorcio } from '../lib/api';
+
 const Icon = ({ path, size = 18, className = '' }) => (
   <svg width={size} height={size} className={className} fill="none"
     stroke="currentColor" viewBox="0 0 24 24" style={{ minWidth: size, minHeight: size }}>
@@ -24,13 +32,18 @@ const ICONS = {
   atras:   'M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18',
   ojo:     'M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.964-7.178z M15 12a3 3 0 11-6 0 3 3 0 016 0z',
   ojoCerrado: 'M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88',
+  edificio: 'M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008z',
 };
- 
+
 const ROLES = ['administrador', 'propietario', 'inquilino'];
-const BADGE_ROL = { administrador: 'bg-purple-400/15 text-purple-400', propietario: 'bg-emerald-400/15 text-emerald-400', inquilino: 'bg-sky-400/15 text-sky-400' };
- 
+const BADGE_ROL = {
+  administrador: 'bg-purple-400/15 text-purple-400',
+  propietario:   'bg-emerald-400/15 text-emerald-400',
+  inquilino:     'bg-sky-400/15 text-sky-400',
+};
+
 const Spinner = () => <div className="w-5 h-5 rounded-full border-2 border-emerald-400 border-t-transparent animate-spin" />;
- 
+
 const Modal = ({ titulo, children }) => (
   <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
     style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
@@ -40,85 +53,90 @@ const Modal = ({ titulo, children }) => (
     </div>
   </div>
 );
- 
+
 const FORM_VACIO = { nombre: '', email: '', contrasena: '', rol: 'propietario' };
- 
+
 export default function UsuariosPage() {
   const { usuario: usuarioActual } = useAuth();
   const navigate = useNavigate();
- 
+  const { cid }  = useParams();
+  const api      = apiConsorcio(cid);
+
   const [usuarios,   setUsuarios]   = useState([]);
   const [cargando,   setCargando]   = useState(true);
   const [error,      setError]      = useState('');
   const [toast,      setToast]      = useState('');
- 
+
   const [modal,      setModal]      = useState(null);
   const [usuarioSel, setUsuarioSel] = useState(null);
   const [form,       setForm]       = useState(FORM_VACIO);
   const [verPass,    setVerPass]    = useState(false);
   const [guardando,  setGuardando]  = useState(false);
   const [errorForm,  setErrorForm]  = useState('');
- 
+
   const mostrarToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3500); };
- 
+
   const cargar = async () => {
     try { setCargando(true); const r = await api.get('/usuarios'); setUsuarios(r.data.datos ?? r.data); }
     catch { setError('No se pudieron cargar los usuarios'); }
     finally { setCargando(false); }
   };
- 
+
   useEffect(() => { cargar(); }, []);
- 
+
   const abrirCrear = () => { setForm(FORM_VACIO); setErrorForm(''); setVerPass(false); setModal('crear'); };
   const abrirEditar = (u) => {
     setUsuarioSel(u);
-    setForm({ nombre: u.nombre, email: u.email, contrasena: '', rol: u.rol });
+    // Solo el rol dentro del consorcio es editable; nombre/email son de plataforma
+    setForm({ nombre: u.nombre, email: u.email, contrasena: '', rol: u.rol_consorcio });
     setErrorForm(''); setVerPass(false); setModal('editar');
   };
- 
+
   const handleGuardar = async () => {
-    if (!form.nombre || !form.email || !form.rol) { setErrorForm('Completá todos los campos requeridos'); return; }
+    if (modal === 'crear' && (!form.nombre || !form.email || !form.rol)) {
+      setErrorForm('Completá todos los campos requeridos'); return;
+    }
     if (modal === 'crear' && !form.contrasena) { setErrorForm('La contraseña es requerida'); return; }
     setGuardando(true); setErrorForm('');
     try {
       if (modal === 'crear') {
         await api.post('/usuarios', form);
-        mostrarToast('Usuario creado correctamente');
+        mostrarToast('Usuario agregado al consorcio correctamente');
       } else {
-        const payload = { nombre: form.nombre, email: form.email, rol: form.rol };
-        await api.put(`/usuarios/${usuarioSel.id}`, payload);
-        mostrarToast('Usuario actualizado correctamente');
+        // Edición = solo cambio de rol dentro del consorcio
+        await api.patch(`/usuarios/${usuarioSel.id}/rol`, { rol: form.rol });
+        mostrarToast('Rol actualizado correctamente');
       }
       setModal(null); cargar();
     } catch (e) {
       setErrorForm(e.response?.data?.mensaje || 'Error al guardar');
     } finally { setGuardando(false); }
   };
- 
-  const handleDesactivar = async () => {
+
+  const handleQuitar = async () => {
     if (!usuarioSel) return;
     setGuardando(true);
     try {
       await api.delete(`/usuarios/${usuarioSel.id}`);
-      mostrarToast('Usuario desactivado');
+      mostrarToast('Usuario removido del consorcio');
       setModal(null); cargar();
     } catch (e) {
-      mostrarToast(e.response?.data?.mensaje || 'Error al desactivar');
+      mostrarToast(e.response?.data?.mensaje || 'Error al quitar usuario');
       setModal(null);
     } finally { setGuardando(false); }
   };
- 
+
   return (
     <Layout>
       <header className="sticky top-0 z-10 border-b border-white/[0.06] bg-[hsl(222,47%,7%)]/80
                          backdrop-blur-sm px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/dashboard')} className="text-slate-500 hover:text-white transition-colors">
+          <button onClick={() => navigate(`/consorcios/${cid}/dashboard`)} className="text-slate-500 hover:text-white transition-colors">
             <Icon path={ICONS.atras} size={18} />
           </button>
           <div>
             <h1 className="text-white text-lg font-semibold leading-none">Usuarios</h1>
-            <p className="text-slate-500 text-xs mt-1">{usuarios.length} usuario{usuarios.length !== 1 ? 's' : ''}</p>
+            <p className="text-slate-500 text-xs mt-1">{usuarios.length} usuario{usuarios.length !== 1 ? 's' : ''} en este consorcio</p>
           </div>
         </div>
         <button onClick={abrirCrear}
@@ -128,7 +146,7 @@ export default function UsuariosPage() {
           Nuevo usuario
         </button>
       </header>
- 
+
       <div className="p-6 space-y-3">
         {error && (
           <div className="flex items-center gap-3 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
@@ -136,17 +154,25 @@ export default function UsuariosPage() {
             <p className="text-red-400 text-sm">{error}</p>
           </div>
         )}
- 
+
         {cargando ? (
           <div className="flex items-center justify-center py-20">
             <div className="w-8 h-8 rounded-full border-2 border-emerald-400 border-t-transparent animate-spin" />
+          </div>
+        ) : usuarios.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-3">
+            <Icon path={ICONS.edificio} size={32} className="text-slate-600" />
+            <p className="text-slate-400 text-sm">No hay usuarios en este consorcio todavía</p>
+            <button onClick={abrirCrear} className="text-emerald-400 text-sm hover:underline">
+              Agregar el primer usuario →
+            </button>
           </div>
         ) : (
           <div className="bg-slate-900/60 border border-white/[0.06] rounded-xl overflow-hidden">
             <table className="w-full text-sm">
               <thead className="border-b border-white/[0.06]">
                 <tr>
-                  <th className="text-left text-slate-500 text-xs uppercase tracking-wider px-5 py-3 font-medium">Usuario</th>
+                  <th className="text-left text-slate-500 text-xs uppercase tracking-wider px-5 py-3 font-medium">Nombre</th>
                   <th className="text-left text-slate-500 text-xs uppercase tracking-wider px-5 py-3 font-medium">Email</th>
                   <th className="text-left text-slate-500 text-xs uppercase tracking-wider px-5 py-3 font-medium">Rol</th>
                   <th className="text-left text-slate-500 text-xs uppercase tracking-wider px-5 py-3 font-medium">Alta</th>
@@ -173,8 +199,8 @@ export default function UsuariosPage() {
                     </td>
                     <td className="px-5 py-3.5 text-slate-500 text-xs">{u.email}</td>
                     <td className="px-5 py-3.5">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium capitalize ${BADGE_ROL[u.rol] ?? 'bg-slate-700/50 text-slate-300'}`}>
-                        {u.rol}
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium capitalize ${BADGE_ROL[u.rol_consorcio] ?? 'bg-slate-700/50 text-slate-300'}`}>
+                        {u.rol_consorcio}
                       </span>
                     </td>
                     <td className="px-5 py-3.5 text-slate-600 text-xs">
@@ -201,29 +227,34 @@ export default function UsuariosPage() {
           </div>
         )}
       </div>
- 
+
       {/* Modal crear/editar */}
       {(modal === 'crear' || modal === 'editar') && (
-        <Modal titulo={modal === 'crear' ? 'Nuevo usuario' : 'Editar usuario'}>
+        <Modal titulo={modal === 'crear' ? 'Nuevo usuario' : 'Editar rol'}>
           <div className="space-y-3">
             <div className="space-y-1.5">
               <label className="text-slate-400 text-xs uppercase tracking-wider">Nombre</label>
-              <input value={form.nombre} onChange={e => setForm({...form, nombre: e.target.value})}
+              <input value={form.nombre} disabled={modal === 'editar'}
+                onChange={e => setForm({...form, nombre: e.target.value})}
                 placeholder="Nombre completo"
                 className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-4 py-2.5
-                           text-white text-sm placeholder:text-slate-600
+                           text-white text-sm placeholder:text-slate-600 disabled:opacity-50
                            focus:outline-none focus:border-emerald-400/50 transition-all" />
             </div>
             <div className="space-y-1.5">
               <label className="text-slate-400 text-xs uppercase tracking-wider">Email</label>
-              <input type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})}
+              <input type="email" value={form.email} disabled={modal === 'editar'}
+                onChange={e => setForm({...form, email: e.target.value})}
                 placeholder="email@ejemplo.com"
                 className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-4 py-2.5
-                           text-white text-sm placeholder:text-slate-600
+                           text-white text-sm placeholder:text-slate-600 disabled:opacity-50
                            focus:outline-none focus:border-emerald-400/50 transition-all" />
+              {modal === 'crear' && (
+                <p className="text-slate-600 text-xs">Si ya existe en la plataforma, solo se agrega a este consorcio.</p>
+              )}
             </div>
             <div className="space-y-1.5">
-              <label className="text-slate-400 text-xs uppercase tracking-wider">Rol</label>
+              <label className="text-slate-400 text-xs uppercase tracking-wider">Rol en este consorcio</label>
               <select value={form.rol} onChange={e => setForm({...form, rol: e.target.value})}
                 className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-4 py-2.5
                            text-white text-sm focus:outline-none focus:border-emerald-400/50
@@ -246,6 +277,7 @@ export default function UsuariosPage() {
                     <Icon path={verPass ? ICONS.ojo : ICONS.ojoCerrado} size={16} />
                   </button>
                 </div>
+                <p className="text-slate-600 text-xs">Se ignora si el usuario ya existe en la plataforma.</p>
               </div>
             )}
             {errorForm && <p className="text-red-400 text-xs">{errorForm}</p>}
@@ -264,29 +296,29 @@ export default function UsuariosPage() {
           </div>
         </Modal>
       )}
- 
-      {/* Modal desactivar */}
+
+      {/* Modal quitar del consorcio */}
       {modal === 'eliminar' && (
-        <Modal titulo="Desactivar usuario">
+        <Modal titulo="Quitar usuario del consorcio">
           <p className="text-slate-400 text-sm">
-            ¿Desactivar a <span className="text-white font-medium">{usuarioSel?.nombre}</span>?
-            Ya no podrá iniciar sesión.
+            ¿Quitar a <span className="text-white font-medium">{usuarioSel?.nombre}</span> de este consorcio?
+            Esto no elimina su cuenta de la plataforma, solo su acceso a este consorcio.
           </p>
           <div className="flex gap-3">
             <button onClick={() => setModal(null)} disabled={guardando}
               className="flex-1 border border-white/[0.08] text-slate-400 hover:text-white
                          rounded-lg py-2.5 text-sm transition-all disabled:opacity-50">Cancelar</button>
-            <button onClick={handleDesactivar} disabled={guardando}
+            <button onClick={handleQuitar} disabled={guardando}
               className="flex-1 bg-red-500 hover:bg-red-400 text-white font-semibold
                          rounded-lg py-2.5 text-sm transition-all disabled:opacity-50
                          flex items-center justify-center gap-2">
               {guardando ? <Spinner /> : null}
-              {guardando ? 'Desactivando…' : 'Desactivar'}
+              {guardando ? 'Quitando…' : 'Quitar'}
             </button>
           </div>
         </Modal>
       )}
- 
+
       {toast && (
         <div className="fixed bottom-6 right-6 z-50 bg-slate-800 border border-white/[0.08]
                         rounded-xl px-4 py-3 flex items-center gap-3 shadow-xl animate-fade-up">

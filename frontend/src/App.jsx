@@ -1,5 +1,5 @@
 // ============================================================
-// App.jsx — Router principal
+// App.jsx  —  multi-consorcio
 // Ubicación: src/App.jsx
 // ============================================================
 
@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider }    from './context/AuthContext';
 import RutaProtegida       from './components/RutaProtegida';
 import LoginPage           from './pages/LoginPage';
+import ConsorciosPage      from './pages/ConsorciosPage';
 import DashboardPage       from './pages/DashboardPage';
 import PeriodosPage        from './pages/PeriodosPage';
 import GastosPage          from './pages/GastosPage';
@@ -24,31 +25,36 @@ export default function App() {
           {/* Pública */}
           <Route path="/login" element={<LoginPage />} />
 
-          {/* Protegidas */}
-          <Route path="/dashboard" element={
-            <RutaProtegida><DashboardPage /></RutaProtegida>
-          } />
-          <Route path="/periodos" element={
-            <RutaProtegida><PeriodosPage /></RutaProtegida>
-          } />
-          <Route path="/unidades" element={
-            <RutaProtegida><UnidadesPage /></RutaProtegida>
-          } />
-          <Route path="/gastos" element={
-            <RutaProtegida><GastosPage /></RutaProtegida>
-          } />
-          <Route path="/expensas" element={
-            <RutaProtegida><ExpensasPage /></RutaProtegida>
-          } />
-          <Route path="/presupuestos" element={
-            <RutaProtegida><PresupuestosPage /></RutaProtegida>
-          } />
-          <Route path="/usuarios" element={
-            <RutaProtegida roles={['administrador']}><UsuariosPage /></RutaProtegida>
+          {/* Selector de consorcios — requiere sesión, no requiere :cid */}
+          <Route path="/consorcios" element={
+            <RutaProtegida><ConsorciosPage /></RutaProtegida>
           } />
 
-          {/* Raíz → dashboard */}
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          {/* Rutas con scope de consorcio */}
+          <Route path="/consorcios/:cid/dashboard" element={
+            <RutaProtegida><DashboardPage /></RutaProtegida>
+          } />
+          <Route path="/consorcios/:cid/periodos" element={
+            <RutaProtegida><PeriodosPage /></RutaProtegida>
+          } />
+          <Route path="/consorcios/:cid/unidades" element={
+            <RutaProtegida><UnidadesPage /></RutaProtegida>
+          } />
+          <Route path="/consorcios/:cid/gastos" element={
+            <RutaProtegida><GastosPage /></RutaProtegida>
+          } />
+          <Route path="/consorcios/:cid/expensas" element={
+            <RutaProtegida><ExpensasPage /></RutaProtegida>
+          } />
+          <Route path="/consorcios/:cid/presupuestos" element={
+            <RutaProtegida><PresupuestosPage /></RutaProtegida>
+          } />
+          <Route path="/consorcios/:cid/usuarios" element={
+            <RutaProtegida rolesPlataforma={['administrador']}><UsuariosPage /></RutaProtegida>
+          } />
+
+          {/* Raíz → selector de consorcios */}
+          <Route path="/" element={<Navigate to="/consorcios" replace />} />
 
           {/* 404 */}
           <Route path="*" element={<NotFoundPage />} />

@@ -1,21 +1,18 @@
 // ============================================================
-// expensas.rutas.js
+// expensas.rutas.js  —  multi-consorcio
 // Ubicación: src/routes/expensas.rutas.js
+// Montada bajo /api/consorcios/:cid/expensas
 // ============================================================
 
-const express    = require('express');
-const router     = express.Router();
-const ctrl       = require('../controller/expensas.controlador');
-const autenticar = require('../middlewares/autenticar');
-const autorizar  = require('../middlewares/autorizar');
+const router = require('express').Router({ mergeParams: true });
+const ctrl   = require('../controller/expensas.controlador');
+const { soloAdminConsorcio } = require('../middlewares/verificarAccesoConsorcio');
 
-router.use(autenticar);
-
-router.get('/',                ctrl.listarPorPeriodo);
-router.get('/deudas',          autorizar('administrador'), ctrl.estadoDeudas);
+router.get('/',                 ctrl.listarPorPeriodo);
+router.get('/deudas',           soloAdminConsorcio, ctrl.estadoDeudas);
 router.get('/unidad/:unidadId', ctrl.listarPorUnidad);
-router.get('/:id',             ctrl.obtenerUna);
-router.patch('/:id/pagar',     autorizar('administrador'), ctrl.marcarPagada);
-router.patch('/:id/revertir',  autorizar('administrador'), ctrl.revertirPago);
+router.get('/:id',              ctrl.obtenerUna);
+router.patch('/:id/pagar',      soloAdminConsorcio, ctrl.marcarPagada);
+router.patch('/:id/revertir',   soloAdminConsorcio, ctrl.revertirPago);
 
 module.exports = router;

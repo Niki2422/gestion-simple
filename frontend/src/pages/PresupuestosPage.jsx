@@ -4,10 +4,11 @@
 // ============================================================
 
 import { useEffect, useState, useCallback } from 'react';
-import { useAuth }   from '../context/AuthContext';
-import Layout        from '../components/Layout';
-import EmptyState    from '../components/EmptyState';
-import api           from '../lib/api';
+import { useParams }  from 'react-router-dom';
+import { useAuth }    from '../context/AuthContext';
+import Layout         from '../components/Layout';
+import EmptyState     from '../components/EmptyState';
+import { apiConsorcio } from '../lib/api';
 
 // ── Primitivos ─────────────────────────────────────────────
 const Icon = ({ path, size = 18, className = '' }) => (
@@ -119,7 +120,8 @@ const BarraVotos = ({ votos, totalVotos, ganador }) => {
 // ──────────────────────────────────────────────────────────
 // Vista de detalle de una licitación
 // ──────────────────────────────────────────────────────────
-function DetalleLicitacion({ licitacionId, esAdmin, onVolver, onActualizar }) {
+function DetalleLicitacion({ licitacionId, esAdmin, cid, onVolver, onActualizar }) {
+  const api = apiConsorcio(cid);
   const [datos,       setDatos]       = useState(null);
   const [cargando,    setCargando]    = useState(true);
   const [error,       setError]       = useState('');
@@ -469,8 +471,10 @@ function DetalleLicitacion({ licitacionId, esAdmin, onVolver, onActualizar }) {
 // Vista de lista de licitaciones
 // ──────────────────────────────────────────────────────────
 export default function PresupuestosPage() {
-  const { usuario } = useAuth();
-  const esAdmin     = usuario?.rol === 'administrador';
+  const { usuario, consorcioActual } = useAuth();
+  const { cid }     = useParams();
+  const api         = apiConsorcio(cid);
+  const esAdmin     = consorcioActual?.mi_rol === 'administrador';
 
   const [lista,       setLista]       = useState([]);
   const [cargando,    setCargando]    = useState(true);
@@ -530,6 +534,7 @@ export default function PresupuestosPage() {
         <DetalleLicitacion
           licitacionId={detalle}
           esAdmin={esAdmin}
+          cid={cid}
           onVolver={() => setDetalle(null)}
           onActualizar={cargarLista}
         />

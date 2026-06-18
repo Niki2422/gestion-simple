@@ -1,78 +1,61 @@
 // ============================================================
-// unidades.servicio.js
-// Lógica de negocio para gestión de unidades.
+// unidades.servicio.js  —  multi-consorcio
+// Ubicación: src/service/unidades.servicio.js
 // ============================================================
 
 const unidadModelo         = require('../models/unidad.modelo');
 const usuarioModelo        = require('../models/usuario.modelo');
 const { ErrorOperacional } = require('../middlewares/manejarErrores');
 
-const TIPOS_VALIDOS = ['departamento', 'cochera'];
+const TIPOS_VALIDOS = ['departamento', 'cochera', 'local', 'otro'];
 
-// ── Listar todas ───────────────────────────────────────────
-const listar = async () => {
-  return unidadModelo.listarTodas();
+const listar = async (consorcioId) => unidadModelo.listarTodas(consorcioId);
+
+const listarPorUsuario = async (usuarioId, rolEnConsorcio, consorcioId) => {
+  if (rolEnConsorcio === 'propietario') {
+    return unidadModelo.buscarPorPropietario(usuarioId, consorcioId);
+  }
+  // admin e inquilino ven todas (inquilino verá la suya en el frontend)
+  return unidadModelo.listarTodas(consorcioId);
 };
 
-// ── Listar por usuario (propietario o inquilino) ───────────
-const listarPorUsuario = async (usuarioId, rol) => {
-  if (rol === 'propietario') {
-    return unidadModelo.buscarPorPropietario(usuarioId);
-  }
-  if (rol === 'inquilino') {
-    return unidadModelo.buscarPorInquilino(usuarioId);
-  }
-  return unidadModelo.listarTodas();
-};
-
-// ── Obtener una por ID ─────────────────────────────────────
-const obtenerPorId = async (id) => {
-  const unidad = await unidadModelo.buscarPorId(id);
-  if (!unidad) {
-    throw new ErrorOperacional('Unidad no encontrada', 404);
-  }
+const obtenerPorId = async (id, consorcioId) => {
+  const unidad = await unidadModelo.buscarPorId(id, consorcioId);
+  if (!unidad) throw new ErrorOperacional('Unidad no encontrada', 404);
   return unidad;
 };
 
-// ── Crear unidad ───────────────────────────────────────────
-const crear = async ({ nombre, tipo, coeficiente, propietarioId, inquilinoId }) => {
-
-  if (!nombre || !tipo || !coeficiente) {
+const crear = async ({ nombre, tipo, coeficiente, propietarioId, inquilinoId, consorcioId }) => {
+  if (!nombre || !tipo || coeficiente === undefined) {
     throw new ErrorOperacional('Nombre, tipo y coeficiente son requeridos', 400);
   }
-
   if (!TIPOS_VALIDOS.includes(tipo)) {
-    throw new ErrorOperacional(`Tipo inválido. Debe ser: ${TIPOS_VALIDOS.join(' o ')}`, 400);
+    throw new ErrorOperacional(`Tipo inválido. Debe ser: ${TIPOS_VALIDOS.join(', ')}`, 400);
   }
 
-  const coeficienteNum = parseFloat(coeficiente);
-  if (isNaN(coeficienteNum) || coeficienteNum <= 0 || coeficienteNum > 100) {
+  const coefNum = parseFloat(coeficiente);
+  if (isNaN(coefNum) || coefNum <= 0 || coefNum > 100) {
     throw new ErrorOperacional('El coeficiente debe ser un número entre 0 y 100', 400);
   }
 
-  // Verificar que propietario e inquilino existen y tienen el rol correcto
+  // Validar roles en consorcio si se asignan
   if (propietarioId) {
-    const propietario = await usuarioModelo.buscarPorId(propietarioId);
-    if (!propietario) throw new ErrorOperacional('Propietario no encontrado', 404);
-    if (propietario.rol !== 'propietario') {
+    const mem = await usuarioModelo.obtenerMembresia(propietarioId, consorcioId);
+    if (!mem) throw new ErrorOperacional('El propietario no es miembro de este consorcio', 400);
+    if (!['propietario','administrador'].includes(mem.rol)) {
       throw new ErrorOperacional('El usuario asignado como propietario debe tener rol propietario', 400);
     }
   }
-
   if (inquilinoId) {
-    const inquilino = await usuarioModelo.buscarPorId(inquilinoId);
-    if (!inquilino) throw new ErrorOperacional('Inquilino no encontrado', 404);
-    if (inquilino.rol !== 'inquilino') {
+    const mem = await usuarioModelo.obtenerMembresia(inquilinoId, consorcioId);
+    if (!mem) throw new ErrorOperacional('El inquilino no es miembro de este consorcio', 400);
+    if (mem.rol !== 'inquilino') {
       throw new ErrorOperacional('El usuario asignado como inquilino debe tener rol inquilino', 400);
     }
   }
 
-  // ⚠️ Advertencia: verificamos que la suma no supere 100
-  // No bloqueamos la creación, pero avisamos al administrador.
-  // En un consorcio real los coeficientes se definen al inicio
-  // y deben sumar exactamente 100.
-  const sumaActual = await unidadModelo.sumaCoeficientes();
-  if (sumaActual + coeficienteNum > 100.0001) {
+  const sumaActual = await unidadModelo.sumaCoeficientes(consorcioId);
+  if (sumaActual + coefNum > 100.0001) {
     throw new ErrorOperacional(
       `La suma de coeficientes superaría 100%. Suma actual: ${sumaActual.toFixed(4)}%`,
       400
@@ -80,42 +63,39 @@ const crear = async ({ nombre, tipo, coeficiente, propietarioId, inquilinoId }) 
   }
 
   return unidadModelo.crear({
-    nombre:       nombre.trim().toUpperCase(),
+    nombre: nombre.trim().toUpperCase(),
     tipo,
-    coeficiente:  coeficienteNum,
+    coeficiente: coefNum,
     propietarioId,
     inquilinoId,
+    consorcioId,
   });
 };
 
-// ── Actualizar unidad ──────────────────────────────────────
-const actualizar = async (id, datos) => {
-  await obtenerPorId(id);
-
+const actualizar = async (id, datos, consorcioId) => {
+  await obtenerPorId(id, consorcioId);
   const { nombre, tipo, coeficiente, propietarioId, inquilinoId } = datos;
 
   if (tipo && !TIPOS_VALIDOS.includes(tipo)) {
-    throw new ErrorOperacional(`Tipo inválido. Debe ser: ${TIPOS_VALIDOS.join(' o ')}`, 400);
+    throw new ErrorOperacional(`Tipo inválido. Debe ser: ${TIPOS_VALIDOS.join(', ')}`, 400);
   }
-
-  const coeficienteNum = coeficiente ? parseFloat(coeficiente) : undefined;
-  if (coeficienteNum !== undefined && (isNaN(coeficienteNum) || coeficienteNum <= 0)) {
-    throw new ErrorOperacional('El coeficiente debe ser un número mayor a 0', 400);
+  const coefNum = coeficiente ? parseFloat(coeficiente) : undefined;
+  if (coefNum !== undefined && (isNaN(coefNum) || coefNum <= 0)) {
+    throw new ErrorOperacional('El coeficiente debe ser mayor a 0', 400);
   }
 
   return unidadModelo.actualizar(id, {
-    nombre:       nombre?.trim().toUpperCase(),
+    nombre: nombre?.trim().toUpperCase(),
     tipo,
-    coeficiente:  coeficienteNum,
+    coeficiente: coefNum,
     propietarioId,
     inquilinoId,
   });
 };
 
-// ── Desactivar unidad ──────────────────────────────────────
-const desactivar = async (id) => {
-  await obtenerPorId(id);
-  return unidadModelo.desactivar(id);
+const desactivar = async (id, consorcioId) => {
+  await obtenerPorId(id, consorcioId);
+  return unidadModelo.desactivar(id, consorcioId);
 };
 
 module.exports = { listar, listarPorUsuario, obtenerPorId, crear, actualizar, desactivar };

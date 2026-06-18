@@ -1,23 +1,19 @@
 // ============================================================
-// gastos.rutas.js
-// Solo administradores pueden cargar y eliminar gastos.
+// gastos.rutas.js  —  multi-consorcio
+// Ubicación: src/routes/gastos.rutas.js
+// Montada bajo /api/consorcios/:cid/gastos
 // ============================================================
 
-const express  = require('express');
-const router   = express.Router();
-const ctrl     = require('../controller/gastos.controlador');
-const autenticar = require('../middlewares/autenticar');
-const autorizar  = require('../middlewares/autorizar');
+const router = require('express').Router({ mergeParams: true });
+const ctrl   = require('../controller/gastos.controlador');
+const { soloAdminConsorcio } = require('../middlewares/verificarAccesoConsorcio');
 
-// Todos los endpoints requieren sesión activa
-router.use(autenticar);
-
-// GET /api/gastos?periodoId=xxx  — admin ve todos, otros solo consultan
+// GET /gastos?periodoId=xxx — todos los roles pueden consultar
 router.get('/',    ctrl.listar);
 router.get('/:id', ctrl.obtenerUno);
 
-// Solo administrador puede cargar y eliminar gastos
-router.post('/',    autorizar('administrador'), ctrl.crear);
-router.delete('/:id', autorizar('administrador'), ctrl.eliminar);
+// Solo administrador del consorcio puede cargar y eliminar gastos
+router.post('/',      soloAdminConsorcio, ctrl.crear);
+router.delete('/:id', soloAdminConsorcio, ctrl.eliminar);
 
 module.exports = router;

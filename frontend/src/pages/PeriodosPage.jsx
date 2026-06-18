@@ -4,10 +4,10 @@
 // ============================================================
 
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout';
-import api from '../lib/api';
+import { apiConsorcio } from '../lib/api';
 
 const Icon = ({ path, size = 18, className = '' }) => (
   <svg width={size} height={size} className={className} fill="none"
@@ -100,7 +100,8 @@ const ModalEliminar = ({ periodo, onConfirmar, onCancelar, cargando }) => (
 );
 
 // ── Card de período con totales expandibles ────────────────
-function CardPeriodo({ p, esAdmin, navigate, onCerrar, onEliminar }) {
+function CardPeriodo({ p, esAdmin, navigate, cid, onCerrar, onEliminar }) {
+  const api = apiConsorcio(cid);
   const [expandido,  setExpandido]  = useState(false);
   const [expensas,   setExpensas]   = useState([]);
   const [cargando,   setCargando]   = useState(false);
@@ -154,14 +155,14 @@ function CardPeriodo({ p, esAdmin, navigate, onCerrar, onEliminar }) {
         </div>
 
         <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
-          <button onClick={() => navigate(`/gastos?periodoId=${p.id}`)}
+          <button onClick={() => navigate(`/consorcios/${cid}/gastos?periodoId=${p.id}`)}
             className="text-slate-500 hover:text-white text-xs flex items-center gap-1.5
                        border border-white/[0.06] hover:border-white/[0.12] px-3 py-1.5 rounded-lg transition-all">
             <Icon path={ICONS.gasto} size={14} />
             Gastos
           </button>
           {p.cerrado === true && (
-            <button onClick={() => navigate(`/expensas?periodoId=${p.id}`)}
+            <button onClick={() => navigate(`/consorcios/${cid}/expensas?periodoId=${p.id}`)}
               className="text-slate-500 hover:text-white text-xs flex items-center gap-1.5
                          border border-white/[0.06] hover:border-white/[0.12] px-3 py-1.5 rounded-lg transition-all">
               <Icon path={ICONS.expensa} size={14} />
@@ -259,9 +260,11 @@ function CardPeriodo({ p, esAdmin, navigate, onCerrar, onEliminar }) {
 }
 
 export default function PeriodosPage() {
-  const { usuario } = useAuth();
+  const { usuario, consorcioActual } = useAuth();
   const navigate    = useNavigate();
-  const esAdmin     = usuario?.rol === 'administrador';
+  const { cid }     = useParams();
+  const api         = apiConsorcio(cid);
+  const esAdmin     = consorcioActual?.mi_rol === 'administrador';
 
   const [periodos,         setPeriodos]         = useState([]);
   const [cargando,         setCargando]         = useState(true);
@@ -341,7 +344,7 @@ export default function PeriodosPage() {
       <header className="sticky top-0 z-10 border-b border-white/[0.06] bg-[hsl(222,47%,7%)]/80
                          backdrop-blur-sm px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/dashboard')} className="text-slate-500 hover:text-white transition-colors">
+          <button onClick={() => navigate(`/consorcios/${cid}/dashboard`)} className="text-slate-500 hover:text-white transition-colors">
             <Icon path={ICONS.atras} size={18} />
           </button>
           <div>
@@ -423,6 +426,7 @@ export default function PeriodosPage() {
                 p={p}
                 esAdmin={esAdmin}
                 navigate={navigate}
+                cid={cid}
                 onCerrar={setPeriodoACerrar}
                 onEliminar={setPeriodoAEliminar}
               />

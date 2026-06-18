@@ -1,5 +1,5 @@
 // ============================================================
-// expensas.controlador.js
+// expensas.controlador.js  —  multi-consorcio
 // Ubicación: src/controller/expensas.controlador.js
 // ============================================================
 
@@ -9,12 +9,12 @@ const { ErrorOperacional } = require('../middlewares/manejarErrores');
 const listarPorPeriodo = async (req, res, next) => {
   try {
     const { periodoId } = req.query;
-    if (!periodoId) {
-      return res.status(400).json({ exito: false, mensaje: 'El parámetro periodoId es obligatorio' });
-    }
+    if (!periodoId) return res.status(400).json({ exito: false, mensaje: 'periodoId es obligatorio' });
+
     const expensas = await expensaModelo.listarPorPeriodo(periodoId);
-    const { rol } = req.usuario;
-    if (rol !== 'administrador') {
+
+    // Propietario/inquilino solo ven sus propias expensas
+    if (req.rolEnConsorcio !== 'administrador') {
       const filtradas = expensas.filter(
         e => e.propietario_email === req.usuario.email ||
              e.inquilino_email   === req.usuario.email
@@ -22,21 +22,21 @@ const listarPorPeriodo = async (req, res, next) => {
       return res.json({ exito: true, datos: filtradas });
     }
     res.json({ exito: true, datos: expensas });
-  } catch (error) { next(error); }
+  } catch (e) { next(e); }
 };
 
 const estadoDeudas = async (req, res, next) => {
   try {
-    const deudas = await expensaModelo.estadoDeudaPorUnidad();
+    const deudas = await expensaModelo.estadoDeudaPorUnidad(req.consorcioId);
     res.json({ exito: true, datos: deudas });
-  } catch (error) { next(error); }
+  } catch (e) { next(e); }
 };
 
 const listarPorUnidad = async (req, res, next) => {
   try {
     const expensas = await expensaModelo.listarPorUnidad(req.params.unidadId);
     res.json({ exito: true, datos: expensas });
-  } catch (error) { next(error); }
+  } catch (e) { next(e); }
 };
 
 const obtenerUna = async (req, res, next) => {
@@ -44,10 +44,9 @@ const obtenerUna = async (req, res, next) => {
     const expensa = await expensaModelo.buscarPorId(req.params.id);
     if (!expensa) throw new ErrorOperacional('Expensa no encontrada', 404);
     res.json({ exito: true, datos: expensa });
-  } catch (error) { next(error); }
+  } catch (e) { next(e); }
 };
 
-// PATCH /api/expensas/:id/pagar
 const marcarPagada = async (req, res, next) => {
   try {
     const expensa = await expensaModelo.buscarPorId(req.params.id);
@@ -55,10 +54,9 @@ const marcarPagada = async (req, res, next) => {
     if (expensa.pagado) throw new ErrorOperacional('Esta expensa ya fue registrada como pagada', 400);
     const actualizada = await expensaModelo.marcarPagada(req.params.id);
     res.json({ exito: true, mensaje: 'Expensa marcada como pagada', datos: actualizada });
-  } catch (error) { next(error); }
+  } catch (e) { next(e); }
 };
 
-// PATCH /api/expensas/:id/revertir — solo admin
 const revertirPago = async (req, res, next) => {
   try {
     const expensa = await expensaModelo.buscarPorId(req.params.id);
@@ -66,7 +64,7 @@ const revertirPago = async (req, res, next) => {
     if (!expensa.pagado) throw new ErrorOperacional('Esta expensa no está marcada como pagada', 400);
     const actualizada = await expensaModelo.marcarPendiente(req.params.id);
     res.json({ exito: true, mensaje: 'Pago revertido correctamente', datos: actualizada });
-  } catch (error) { next(error); }
+  } catch (e) { next(e); }
 };
 
 module.exports = { listarPorPeriodo, estadoDeudas, listarPorUnidad, obtenerUna, marcarPagada, revertirPago };

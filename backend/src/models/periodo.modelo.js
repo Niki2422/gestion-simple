@@ -1,61 +1,59 @@
 // ============================================================
-// periodo.modelo.js
+// periodo.modelo.js  —  multi-consorcio
 // Ubicación: src/models/periodo.modelo.js
 // ============================================================
- 
+
 const { consultar } = require('../config/baseDatos');
- 
-const listarTodos = async () => {
-  const resultado = await consultar(
-    `SELECT * FROM periodos ORDER BY periodo DESC`
+
+const listarTodos = async (consorcioId) => {
+  const r = await consultar(
+    `SELECT * FROM periodos WHERE consorcio_id = $1 ORDER BY periodo DESC`,
+    [consorcioId]
   );
-  return resultado.rows;
+  return r.rows;
 };
- 
-const buscarPorId = async (id) => {
-  const resultado = await consultar(
-    'SELECT * FROM periodos WHERE id = $1',
-    [id]
+
+const buscarPorId = async (id, consorcioId) => {
+  const r = await consultar(
+    `SELECT * FROM periodos WHERE id = $1 AND consorcio_id = $2`,
+    [id, consorcioId]
   );
-  return resultado.rows[0] || null;
+  return r.rows[0] || null;
 };
- 
-const buscarPorPeriodo = async (periodo) => {
-  const resultado = await consultar(
-    'SELECT * FROM periodos WHERE periodo = $1',
-    [periodo]
+
+const buscarPorPeriodo = async (periodo, consorcioId) => {
+  const r = await consultar(
+    `SELECT * FROM periodos WHERE periodo = $1 AND consorcio_id = $2`,
+    [periodo, consorcioId]
   );
-  return resultado.rows[0] || null;
+  return r.rows[0] || null;
 };
- 
-const crear = async (periodo) => {
-  const resultado = await consultar(
-    `INSERT INTO periodos (periodo) VALUES ($1) RETURNING *`,
-    [periodo]
+
+const crear = async (periodo, consorcioId) => {
+  const r = await consultar(
+    `INSERT INTO periodos (periodo, consorcio_id) VALUES ($1, $2) RETURNING *`,
+    [periodo, consorcioId]
   );
-  return resultado.rows[0];
+  return r.rows[0];
 };
- 
+
 const cerrar = async (id, { totalOrdinario, totalExtraordinario }) => {
-  const resultado = await consultar(
+  const r = await consultar(
     `UPDATE periodos
-     SET cerrado = true,
-         cerrado_en = NOW(),
-         total_ordinario = $1,
-         total_extraordinario = $2
-     WHERE id = $3
-     RETURNING *`,
+     SET cerrado = true, cerrado_en = NOW(),
+         total_ordinario = $1, total_extraordinario = $2
+     WHERE id = $3 RETURNING *`,
     [totalOrdinario, totalExtraordinario, id]
   );
-  return resultado.rows[0];
+  return r.rows[0];
 };
- 
-const eliminar = async (id) => {
-  const resultado = await consultar(
-    `DELETE FROM periodos WHERE id = $1 RETURNING id, periodo`,
-    [id]
+
+const eliminar = async (id, consorcioId) => {
+  const r = await consultar(
+    `DELETE FROM periodos WHERE id = $1 AND consorcio_id = $2 RETURNING id, periodo`,
+    [id, consorcioId]
   );
-  return resultado.rows[0] || null;
+  return r.rows[0] || null;
 };
- 
+
 module.exports = { listarTodos, buscarPorId, buscarPorPeriodo, crear, cerrar, eliminar };
